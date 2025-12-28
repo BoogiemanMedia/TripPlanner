@@ -637,6 +637,227 @@
         border-bottom: 1px solid var(--line);
       }
     }
+
+    /* ==================== INLINE EDIT FORM ==================== */
+    .event-edit-form {
+      display: none;
+      margin-top: 12px;
+      padding: 14px;
+      background: var(--panel);
+      border-radius: 8px;
+      border: 1px solid var(--line-light);
+    }
+
+    .event.editing .event-edit-form {
+      display: block;
+    }
+
+    .event.editing .event-view {
+      display: none;
+    }
+
+    .event-view {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .edit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .edit-grid .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .edit-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .edit-field label {
+      margin-bottom: 0;
+    }
+
+    .edit-field input,
+    .edit-field select {
+      width: 100%;
+    }
+
+    .edit-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .ticket-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 6px 10px;
+      background: var(--chip);
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      transition: all 0.2s;
+    }
+
+    .ticket-checkbox:hover {
+      border-color: var(--line-light);
+    }
+
+    .ticket-checkbox input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--success);
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .ticket-checkbox span {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .ticket-checkbox.bought {
+      background: rgba(52, 211, 153, 0.1);
+      border-color: var(--success);
+    }
+
+    .ticket-checkbox.pending {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: var(--warning);
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .btn-icon {
+      padding: 6px 8px;
+      font-size: 14px;
+      background: transparent;
+      border: 1px solid var(--line);
+    }
+
+    .btn-icon:hover {
+      background: var(--panel-hover);
+      border-color: var(--line-light);
+    }
+
+    /* Handle for drag */
+    .event-handle {
+      cursor: grab;
+      color: var(--muted);
+      padding: 4px;
+      margin-right: 4px;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+
+    .event:hover .event-handle {
+      opacity: 1;
+    }
+
+    .event.sortable-ghost {
+      opacity: 0.4;
+      background: var(--accent-soft);
+    }
+
+    .event.sortable-chosen {
+      background: var(--panel-hover);
+      border-color: var(--accent);
+    }
+
+    /* Timeline drag support */
+    .timeline-events.sortable-group .timeline-event {
+      cursor: grab;
+    }
+
+    .timeline-event.sortable-ghost {
+      opacity: 0.4;
+      background: var(--accent-soft);
+    }
+
+    .timeline-event.sortable-chosen {
+      background: var(--panel-hover);
+      border-color: var(--accent);
+    }
+
+    .timeline-event .event-handle {
+      cursor: grab;
+      color: var(--muted);
+      font-size: 12px;
+      opacity: 0.5;
+    }
+
+    .timeline-event:hover .event-handle {
+      opacity: 1;
+    }
+
+    /* Day type badges */
+    .day-type-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .day-type-badge.arrival {
+      background: rgba(91, 141, 239, 0.15);
+      color: var(--accent);
+    }
+
+    .day-type-badge.departure {
+      background: rgba(167, 139, 250, 0.15);
+      color: #a78bfa;
+    }
+
+    .day-type-badge.full {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+    }
+
+    /* City config: day types */
+    .city-day-config {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--line);
+    }
+
+    .day-type-selector {
+      display: flex;
+      gap: 6px;
+    }
+
+    .day-type-option {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      transition: all 0.2s;
+    }
+
+    .day-type-option:hover {
+      border-color: var(--line-light);
+    }
+
+    .day-type-option.selected {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -1182,41 +1403,162 @@
     return det;
   }
 
+  // Lista de tipos de evento para el selector
+  const EVENT_TYPES = [
+    'paseo', 'museo', 'ticket', 'comida', 'arquitectura', 'barrio',
+    'cultura', 'arte', 'diseño', 'música', 'logística', 'hotel',
+    'transporte', 'compras', 'naturaleza', 'playa', 'nocturno',
+    'foto', 'mirador', 'religioso', 'mercado', 'café', 'bar', 'show', 'tour'
+  ];
+
   function eventCard(city, day, e) {
     const el = document.createElement("div");
     el.className = "event";
     el.dataset.eventId = e.id;
+    el.dataset.cityId = city.id;
+    el.dataset.dayId = day.id;
 
     const icon = getEventIcon(e.type);
     const timePart = e.startTime ? `${escapeHtml(e.startTime)}${e.endTime ? " – "+escapeHtml(e.endTime) : ""}` : "";
-    const linkPart = e.link ? `<a href="${escapeHtml(e.link)}" target="_blank">🔗 Link</a>` : "";
+    const linkPart = e.link ? `<a href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗</a>` : "";
 
-    let ticketBadge = '';
-    if (e.ticketRequired) {
-      ticketBadge = e.ticketBought
-        ? `<span class="ticket-status bought">✓ Comprado</span>`
-        : `<span class="ticket-status pending">⚠ Pendiente</span>`;
-    }
+    // Generar opciones del select de tipos
+    const typeOptions = EVENT_TYPES.map(t =>
+      `<option value="${t}" ${e.type === t ? 'selected' : ''}>${t}</option>`
+    ).join('');
 
     el.innerHTML = `
-      <div class="left">
-        <div class="title"><span class="icon">${icon}</span> ${escapeHtml(e.title)}</div>
-        <div class="meta">
-          <span class="type-badge">${escapeHtml(e.type || "evento")}</span>
-          ${timePart ? `<span class="time">🕐 ${timePart}</span>` : ""}
-          ${ticketBadge}
-          ${linkPart ? `<span>${linkPart}</span>` : ""}
+      <div class="event-view">
+        <div class="left" style="display:flex; align-items:flex-start; gap:8px;">
+          <span class="event-handle" title="Arrastrar">☰</span>
+          <div>
+            <div class="title"><span class="icon">${icon}</span> ${escapeHtml(e.title)}</div>
+            <div class="meta">
+              <span class="type-badge">${escapeHtml(e.type || "evento")}</span>
+              ${timePart ? `<span class="time">🕐 ${timePart}</span>` : ""}
+              ${linkPart}
+            </div>
+          </div>
+        </div>
+        <div class="quick-actions">
+          ${e.ticketRequired ? `
+            <label class="ticket-checkbox ${e.ticketBought ? 'bought' : 'pending'}" title="Click para cambiar estado">
+              <input type="checkbox" data-act="ticket" ${e.ticketBought ? 'checked' : ''} />
+              <span>${e.ticketBought ? '✓ Comprado' : '⚠ Pendiente'}</span>
+            </label>
+          ` : ''}
+          <button class="btn-icon" data-act="edit" title="Editar">✏️</button>
+          <button class="btn-icon danger" data-act="del" title="Borrar">🗑️</button>
         </div>
       </div>
-      <div class="right">
-        <button data-act="edit">Editar</button>
-        <button class="danger" data-act="del">Borrar</button>
+
+      <div class="event-edit-form">
+        <div class="edit-grid">
+          <div class="edit-field full-width">
+            <label>Título</label>
+            <input type="text" data-field="title" value="${escapeHtml(e.title)}" />
+          </div>
+          <div class="edit-field">
+            <label>Tipo</label>
+            <select data-field="type">
+              <option value="">-- Seleccionar --</option>
+              ${typeOptions}
+            </select>
+          </div>
+          <div class="edit-field">
+            <label>Link</label>
+            <input type="url" data-field="link" value="${escapeHtml(e.link || '')}" placeholder="https://..." />
+          </div>
+          <div class="edit-field">
+            <label>Hora inicio</label>
+            <input type="text" data-field="startTime" value="${escapeHtml(e.startTime || '')}" placeholder="10:00 o 'tarde'" />
+          </div>
+          <div class="edit-field">
+            <label>Hora fin</label>
+            <input type="text" data-field="endTime" value="${escapeHtml(e.endTime || '')}" placeholder="14:00 (opcional)" />
+          </div>
+          <div class="edit-field">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" data-field="ticketRequired" ${e.ticketRequired ? 'checked' : ''} style="width:16px;height:16px;" />
+              Requiere ticket/entrada
+            </label>
+          </div>
+          <div class="edit-field">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" data-field="ticketBought" ${e.ticketBought ? 'checked' : ''} ${!e.ticketRequired ? 'disabled' : ''} style="width:16px;height:16px;" />
+              Ticket comprado
+            </label>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="primary" data-act="save">💾 Guardar</button>
+          <button data-act="cancel">Cancelar</button>
+        </div>
       </div>
     `;
 
-    el.querySelector('[data-act="edit"]').addEventListener("click", () => editEvent(e));
-    el.querySelector('[data-act="del"]').addEventListener("click", () => {
-      // remove from whichever day contains it
+    // Event: Toggle ticket bought (quick action)
+    const ticketCheckbox = el.querySelector('[data-act="ticket"]');
+    if (ticketCheckbox) {
+      ticketCheckbox.addEventListener("change", (evt) => {
+        evt.stopPropagation();
+        e.ticketBought = evt.target.checked;
+        saveTrip(trip);
+        // Update label
+        const label = evt.target.closest('.ticket-checkbox');
+        label.className = `ticket-checkbox ${e.ticketBought ? 'bought' : 'pending'}`;
+        label.querySelector('span').textContent = e.ticketBought ? '✓ Comprado' : '⚠ Pendiente';
+      });
+    }
+
+    // Event: Edit button - toggle edit mode
+    el.querySelector('[data-act="edit"]').addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      el.classList.toggle('editing');
+    });
+
+    // Event: Cancel editing
+    el.querySelector('[data-act="cancel"]').addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      el.classList.remove('editing');
+      // Reset form values
+      el.querySelector('[data-field="title"]').value = e.title;
+      el.querySelector('[data-field="type"]').value = e.type || '';
+      el.querySelector('[data-field="link"]').value = e.link || '';
+      el.querySelector('[data-field="startTime"]').value = e.startTime || '';
+      el.querySelector('[data-field="endTime"]').value = e.endTime || '';
+      el.querySelector('[data-field="ticketRequired"]').checked = e.ticketRequired;
+      el.querySelector('[data-field="ticketBought"]').checked = e.ticketBought;
+    });
+
+    // Event: Save changes
+    el.querySelector('[data-act="save"]').addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      e.title = el.querySelector('[data-field="title"]').value.trim() || e.title;
+      e.type = el.querySelector('[data-field="type"]').value;
+      e.link = el.querySelector('[data-field="link"]').value.trim();
+      e.startTime = el.querySelector('[data-field="startTime"]').value.trim();
+      e.endTime = el.querySelector('[data-field="endTime"]').value.trim();
+      e.ticketRequired = el.querySelector('[data-field="ticketRequired"]').checked;
+      e.ticketBought = el.querySelector('[data-field="ticketBought"]').checked;
+
+      if (!e.ticketRequired) e.ticketBought = false;
+
+      saveTrip(trip);
+      renderEverything(false);
+    });
+
+    // Event: ticketRequired checkbox controls ticketBought
+    el.querySelector('[data-field="ticketRequired"]').addEventListener("change", (evt) => {
+      const ticketBoughtCheckbox = el.querySelector('[data-field="ticketBought"]');
+      ticketBoughtCheckbox.disabled = !evt.target.checked;
+      if (!evt.target.checked) ticketBoughtCheckbox.checked = false;
+    });
+
+    // Event: Delete
+    el.querySelector('[data-act="del"]').addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      if (!confirm(`¿Borrar "${e.title}"?`)) return;
       for (const c of trip.cities) {
         for (const d of c.days) {
           const idx = d.events.findIndex(x => x.id === e.id);
@@ -1231,31 +1573,6 @@
     });
 
     return el;
-  }
-
-  function editEvent(e) {
-    const title = prompt("Título:", e.title);
-    if (title === null) return;
-    e.title = title.trim() || e.title;
-
-    const type = prompt("Tipo (museo, paseo, ticket, comida, diseño, música, logística):", e.type || "");
-    if (type !== null) e.type = type.trim();
-
-    const start = prompt("Hora inicio (ej 10:00 o 'tarde'):", e.startTime || "");
-    if (start !== null) e.startTime = start.trim();
-
-    const end = prompt("Hora fin (opcional):", e.endTime || "");
-    if (end !== null) e.endTime = end.trim();
-
-    const link = prompt("Link (opcional):", e.link || "");
-    if (link !== null) e.link = link.trim();
-
-    e.ticketRequired = confirm("Requiere ticket?");
-    if (!e.ticketRequired) e.ticketBought = false;
-    if (e.ticketRequired) e.ticketBought = confirm("Ticket comprado?");
-
-    saveTrip(trip);
-    renderEverything(false);
   }
 
   function renderAll() {
@@ -1376,7 +1693,10 @@
   function wireDnD(container) {
     Sortable.create(container, {
       group: "events",
+      handle: ".event-handle",
       animation: 150,
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
       onEnd: (evt) => {
         const fromCityId = evt.from.dataset.cityId;
         const fromDayId  = evt.from.dataset.dayId;
@@ -1401,7 +1721,69 @@
     });
   }
 
+  // Wire drag & drop for timeline events
+  function wireTimelineDnD() {
+    document.querySelectorAll('.timeline-events[data-day-id]').forEach(container => {
+      Sortable.create(container, {
+        group: "timeline-events",
+        handle: ".event-handle",
+        animation: 150,
+        ghostClass: "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        onEnd: (evt) => {
+          const fromDayId = evt.from.dataset.dayId;
+          const toDayId = evt.to.dataset.dayId;
+          const eventId = evt.item.dataset.eventId;
+
+          // Find the days
+          let fromDay = null, toDay = null;
+          for (const c of trip.cities) {
+            for (const d of c.days) {
+              if (d.id === fromDayId) fromDay = d;
+              if (d.id === toDayId) toDay = d;
+            }
+          }
+
+          if (!fromDay || !toDay) return;
+
+          const moved = fromDay.events.find(e => e.id === eventId);
+          if (!moved) return;
+
+          fromDay.events = fromDay.events.filter(e => e.id !== eventId);
+          toDay.events.splice(evt.newIndex, 0, moved);
+
+          saveTrip(trip);
+          renderTimeline();
+        }
+      });
+    });
+  }
+
   // ---------- Timeline Continua ----------
+  // Determinar tipo de día (llegada, partida, completo)
+  function getDayType(city, dayIndex) {
+    const isFirstDay = dayIndex === 0;
+    const isLastDay = dayIndex === city.days.length - 1;
+
+    // Si tiene firstDayType o lastDayType definido en la ciudad, usarlo
+    if (isFirstDay && city.firstDayType) return city.firstDayType;
+    if (isLastDay && city.lastDayType) return city.lastDayType;
+
+    // Default: primer día es llegada, último es partida
+    if (isFirstDay) return 'arrival';
+    if (isLastDay) return 'departure';
+    return 'full';
+  }
+
+  function getDayTypeBadge(dayType) {
+    switch(dayType) {
+      case 'arrival': return '<span class="day-type-badge arrival">🛬 Llegada</span>';
+      case 'departure': return '<span class="day-type-badge departure">🛫 Partida</span>';
+      case 'full': return '<span class="day-type-badge full">📅 Día completo</span>';
+      default: return '';
+    }
+  }
+
   function renderTimeline() {
     const container = document.getElementById("timelineContent");
     if (!container) return;
@@ -1413,9 +1795,11 @@
     let dayCount = 0;
     for (const c of trip.cities) {
       if (filter !== "all" && c.id !== filter) continue;
-      for (const d of c.days) {
+      for (let i = 0; i < c.days.length; i++) {
+        const d = c.days[i];
         dayCount++;
-        allDays.push({ city: c, day: d, dayNum: dayCount });
+        const dayType = getDayType(c, i);
+        allDays.push({ city: c, day: d, dayNum: dayCount, dayIndex: i, dayType });
       }
     }
 
@@ -1465,6 +1849,11 @@
           <div class="timeline-legend-item"><span class="icon">✈️</span> Logística</div>
         </div>
 
+        <div class="small" style="margin-bottom:16px; padding:10px; background:var(--panel); border-radius:8px; border:1px solid var(--line);">
+          💡 <b>Tip:</b> Arrastrá eventos con el ícono ☰ para reordenarlos o moverlos entre días.
+          Los días de llegada/partida indican transiciones entre ciudades.
+        </div>
+
         <div class="timeline-scroll">
           <div class="timeline-line"></div>
     `;
@@ -1480,7 +1869,7 @@
     } else {
       let lastCityId = null;
 
-      for (const { city, day, dayNum } of allDays) {
+      for (const { city, day, dayNum, dayIndex, dayType } of allDays) {
         // Si cambió la ciudad, mostrar transición
         if (lastCityId !== null && lastCityId !== city.id) {
           html += `
@@ -1511,18 +1900,19 @@
                 <span class="dot" style="background: ${city.color}; box-shadow: 0 0 6px ${city.color}"></span>
                 ${escapeHtml(city.name)}
               </span>
+              ${getDayTypeBadge(dayType)}
               ${city.hotel ? `<span class="hotel">🏨 ${escapeHtml(city.hotel)}</span>` : ''}
             </div>
-            <div class="timeline-events">
+            <div class="timeline-events" data-day-id="${day.id}" data-city-id="${city.id}">
         `;
 
         if (!day.events || day.events.length === 0) {
           html += `
-            <div class="timeline-event" style="opacity: 0.6;">
+            <div class="timeline-event timeline-event-empty" style="opacity: 0.6;">
               <div class="icon">📝</div>
               <div class="content">
                 <div class="event-title" style="color: var(--muted)">Sin eventos planificados</div>
-                <div class="event-meta">Día libre o por planificar</div>
+                <div class="event-meta">${dayType === 'arrival' ? 'Día de llegada - tarde libre' : dayType === 'departure' ? 'Día de partida - mañana libre' : 'Día libre o por planificar'}</div>
               </div>
             </div>
           `;
@@ -1539,7 +1929,8 @@
             }
 
             html += `
-              <div class="timeline-event">
+              <div class="timeline-event" data-event-id="${e.id}">
+                <span class="event-handle" title="Arrastrar">☰</span>
                 <div class="icon">${icon}</div>
                 <div class="content">
                   <div class="event-title">${escapeHtml(e.title)}</div>
@@ -1568,6 +1959,9 @@
     `;
 
     container.innerHTML = html;
+
+    // Wire drag & drop after rendering
+    wireTimelineDnD();
   }
 
   // ---------- PDF export ----------
