@@ -758,6 +758,24 @@ a:hover { opacity: 0.8; }
   border-color: var(--accent);
 }
 
+/* Save confirmation animation */
+.event.just-saved {
+  animation: saveFlash 0.5s ease-out;
+  border-color: var(--success);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+}
+
+@keyframes saveFlash {
+  0% {
+    background: rgba(52, 211, 153, 0.3);
+    transform: scale(1.01);
+  }
+  100% {
+    background: var(--bg);
+    transform: scale(1);
+  }
+}
+
 /* Timeline drag support */
 .timeline-events.sortable-group .timeline-event {
   cursor: grab;

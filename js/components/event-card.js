@@ -140,6 +140,13 @@ export function createEventCard(city, day, e, onRenderEverything) {
 
     if (!e.ticketRequired) e.ticketBought = false;
 
+    // Close the edit form
+    el.classList.remove('editing');
+
+    // Show save confirmation
+    el.classList.add('just-saved');
+    setTimeout(() => el.classList.remove('just-saved'), 1500);
+
     saveTrip(getTrip());
     if (onRenderEverything) onRenderEverything(false);
   });
