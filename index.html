@@ -1738,7 +1738,10 @@
     // Event: Save changes
     el.querySelector('[data-act="save"]').addEventListener("click", (evt) => {
       evt.stopPropagation();
-      e.title = el.querySelector('[data-field="title"]').value.trim() || e.title;
+      console.log("Save clicked for event:", e.id, e.title);
+      const newTitle = el.querySelector('[data-field="title"]').value.trim();
+      console.log("New title value:", newTitle);
+      e.title = newTitle || e.title;
       e.type = el.querySelector('[data-field="type"]').value;
       e.link = el.querySelector('[data-field="link"]').value.trim();
       e.startTime = el.querySelector('[data-field="startTime"]').value.trim();
@@ -1748,8 +1751,11 @@
 
       if (!e.ticketRequired) e.ticketBought = false;
 
+      console.log("Saving event:", JSON.stringify(e));
       saveTrip(trip);
+      console.log("Trip saved, rendering...");
       renderEverything(false);
+      console.log("Render complete");
     });
 
     // Event: ticketRequired checkbox controls ticketBought
