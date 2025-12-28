@@ -17,46 +17,626 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 
   <style>
-    :root { --bg:#0b0c10; --panel:#12141b; --muted:#9aa4b2; --text:#e7edf6; --line:#232838; --chip:#1b2030; }
-    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial; background:var(--bg); color:var(--text); }
-    header { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; }
-    header h1 { margin:0; font-size:16px; font-weight:800; letter-spacing:.2px; }
-    .wrap { display:grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 52px); }
-    aside { border-right:1px solid var(--line); padding:12px; background:var(--panel); }
-    main { padding:12px; }
-    .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    label { font-size:12px; color:var(--muted); }
-    input, select, textarea, button { border-radius:10px; border:1px solid var(--line); background:#0f1117; color:var(--text); padding:10px 10px; font-size:13px; }
-    button { cursor:pointer; }
-    button.primary { background:#1a2a54; border-color:#2a3b70; }
-    button.danger { background:#421a1a; border-color:#6b2a2a; }
-    .small { font-size:12px; color:var(--muted); }
-    .tabs { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-    .tab { padding:8px 10px; border:1px solid var(--line); border-radius:999px; background:#0f1117; cursor:pointer; }
-    .tab.active { background:#1b2030; }
-    .city-pill { padding:8px 10px; border-radius:999px; border:1px solid var(--line); background:var(--chip); display:flex; gap:8px; align-items:center; }
-    .dot { width:10px; height:10px; border-radius:999px; display:inline-block; }
-    .city-list { display:flex; flex-direction:column; gap:8px; }
-    .city-item { padding:10px; border:1px solid var(--line); border-radius:10px; background:#0f1117; display:flex; justify-content:space-between; gap:8px; align-items:center; }
-    .city-item .handle { cursor:grab; color:var(--muted); }
-    .city-item .name { font-weight:700; }
-    .days { display:flex; flex-direction:column; gap:10px; }
-    details { border:1px solid var(--line); border-radius:10px; background:#0f1117; padding:10px; }
-    summary { cursor:pointer; font-weight:800; display:flex; justify-content:space-between; gap:10px; align-items:center; }
-    .events { margin-top:10px; display:flex; flex-direction:column; gap:8px; }
-    .event { border:1px solid var(--line); border-radius:10px; background:#0b0c10; padding:10px; display:flex; justify-content:space-between; gap:10px; }
-    .event .left { display:flex; flex-direction:column; gap:4px; }
-    .event .title { font-weight:800; }
-    .event .meta { color:var(--muted); font-size:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .event .right { display:flex; gap:6px; align-items:center; }
-    a { color:#a8c2ff; text-decoration:none; }
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-    .hr { height:1px; background:var(--line); margin:10px 0; }
-    #calendar { background:#0f1117; border:1px solid var(--line); border-radius:10px; padding:10px; }
-    .ticket { display:flex; gap:10px; align-items:flex-start; padding:10px; border:1px solid var(--line); border-radius:10px; background:#0f1117; }
-    .ticket .tname { font-weight:800; }
-    .pill { padding:2px 8px; border-radius:999px; border:1px solid var(--line); background:#0f1117; }
+    :root {
+      --bg: #0a0b0e;
+      --panel: #121318;
+      --panel-hover: #181a22;
+      --muted: #8b95a5;
+      --text: #f0f4f8;
+      --text-secondary: #c5ced8;
+      --line: #2a2f3d;
+      --line-light: #353b4d;
+      --chip: #1e2230;
+      --accent: #5b8def;
+      --accent-soft: rgba(91, 141, 239, 0.15);
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .wrap {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      min-height: calc(100vh - 60px);
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      padding: 16px;
+      background: var(--panel);
+      overflow-y: auto;
+    }
+
+    main {
+      padding: 20px;
+      background: var(--bg);
+      overflow-y: auto;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--line-light); }
+
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    input, select, textarea, button {
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { background: var(--panel-hover); }
+    button.primary {
+      background: linear-gradient(135deg, #1e3a6e 0%, #2a4a8e 100%);
+      border-color: #3a5a9e;
+    }
+    button.primary:hover { background: linear-gradient(135deg, #2a4a8e 0%, #3a5a9e 100%); }
+    button.danger {
+      background: #3d1f1f;
+      border-color: #5c2d2d;
+    }
+    button.danger:hover { background: #4d2828; }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 10px;
+    }
+    .tab {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); background: var(--panel-hover); }
+    .tab.active {
+      background: var(--chip);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .city-pill {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .city-pill:hover { border-color: var(--line-light); }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      display: inline-block;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .city-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .city-item {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .city-item:hover { border-color: var(--line-light); background: var(--panel-hover); }
+    .city-item .handle { cursor: grab; color: var(--muted); font-size: 14px; }
+    .city-item .name { font-weight: 700; }
+
+    .days { display: flex; flex-direction: column; gap: 12px; }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      padding: 12px;
+      transition: all 0.2s;
+    }
+    details:hover { border-color: var(--line-light); }
+    details[open] { background: var(--panel); }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 4px 0;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: "▸";
+      color: var(--muted);
+      transition: transform 0.2s;
+      margin-right: 8px;
+    }
+    details[open] summary::before { transform: rotate(90deg); }
+
+    .events {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-left: 20px;
+      border-left: 2px solid var(--line);
+    }
+
+    .event {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      transition: all 0.2s;
+    }
+    .event:hover {
+      border-color: var(--line-light);
+      background: var(--panel-hover);
+      transform: translateX(2px);
+    }
+    .event .left { display: flex; flex-direction: column; gap: 6px; }
+    .event .title {
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .event .title .icon { font-size: 16px; }
+    .event .meta {
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .event .meta .type-badge {
+      background: var(--chip);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .event .meta .time {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .event .meta .ticket-status {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .event .meta .ticket-status.pending {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warning);
+    }
+    .event .meta .ticket-status.bought {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+    }
+    .event .right { display: flex; gap: 6px; align-items: center; }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    a:hover { opacity: 0.8; }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .hr { height: 1px; background: var(--line); margin: 14px 0; }
+
+    .ticket {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bg);
+      transition: all 0.2s;
+    }
+    .ticket:hover { border-color: var(--line-light); }
+    .ticket .tname { font-weight: 700; }
+    .ticket input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--success);
+    }
+
+    .pill {
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      font-size: 12px;
+    }
+
+    /* ==================== TIMELINE CONTINUA ==================== */
+    .timeline-container {
+      padding: 20px 0;
+    }
+
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .timeline-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .timeline-stats {
+      display: flex;
+      gap: 20px;
+    }
+
+    .timeline-stat {
+      text-align: center;
+    }
+
+    .timeline-stat .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .timeline-stat .label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .timeline-scroll {
+      position: relative;
+    }
+
+    .timeline-line {
+      position: absolute;
+      left: 24px;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(to bottom, var(--accent), #a78bfa, var(--success));
+      border-radius: 3px;
+    }
+
+    .timeline-day {
+      position: relative;
+      padding-left: 60px;
+      margin-bottom: 24px;
+    }
+
+    .timeline-day:last-child { margin-bottom: 0; }
+
+    .timeline-day-marker {
+      position: absolute;
+      left: 12px;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--panel);
+      border: 3px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      z-index: 1;
+    }
+
+    .timeline-day-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: var(--panel);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+
+    .timeline-day-header .date {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .timeline-day-header .city-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--chip);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .timeline-day-header .city-tag .dot {
+      width: 8px;
+      height: 8px;
+    }
+
+    .timeline-day-header .hotel {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .timeline-events {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .timeline-event {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+
+    .timeline-event:hover {
+      border-color: var(--line-light);
+      background: var(--panel-hover);
+      transform: translateX(4px);
+    }
+
+    .timeline-event .icon {
+      font-size: 20px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--chip);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .timeline-event .content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .timeline-event .event-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .timeline-event .event-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .timeline-event .event-time {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .timeline-event .event-type {
+      background: var(--chip);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .timeline-event .ticket-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .timeline-event .ticket-badge.pending {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--warning);
+    }
+
+    .timeline-event .ticket-badge.bought {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+    }
+
+    .timeline-event .event-link {
+      margin-left: auto;
+    }
+
+    /* City transition in timeline */
+    .timeline-city-change {
+      position: relative;
+      padding-left: 60px;
+      margin: 32px 0;
+    }
+
+    .timeline-city-change-marker {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      z-index: 1;
+      border: 3px solid;
+    }
+
+    .timeline-city-change-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--panel);
+      border-radius: 12px;
+      border: 2px dashed var(--line);
+    }
+
+    .timeline-city-change-content .arrow {
+      font-size: 20px;
+      color: var(--muted);
+    }
+
+    .timeline-city-change-content .city-name {
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Empty state */
+    .timeline-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .timeline-empty .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    /* Legend */
+    .timeline-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 16px;
+      background: var(--panel);
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border: 1px solid var(--line);
+    }
+
+    .timeline-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .timeline-legend-item .icon {
+      font-size: 16px;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .wrap {
+        grid-template-columns: 1fr;
+      }
+      aside {
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+      }
+    }
   </style>
 </head>
 <body>
@@ -132,8 +712,7 @@
     <div id="viewCity" class="view" style="display:none;"></div>
     <div id="viewTimeline" class="view" style="display:none;">
       <div class="card">
-        <div style="font-weight:900; margin-bottom:8px;">Timeline</div>
-        <div id="calendar"></div>
+        <div id="timelineContent"></div>
       </div>
     </div>
     <div id="viewTickets" class="view" style="display:none;"></div>
@@ -162,6 +741,39 @@
     return String(s || "").replace(/[&<>"']/g, m => ({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
     }[m]));
+  }
+
+  // ---------- Event Icons ----------
+  function getEventIcon(type) {
+    const icons = {
+      'museo': '🏛️',
+      'paseo': '🚶',
+      'ticket': '🎟️',
+      'comida': '🍽️',
+      'arquitectura': '🏗️',
+      'barrio': '🏘️',
+      'cultura': '🎭',
+      'arte': '🎨',
+      'diseño': '✨',
+      'música': '🎵',
+      'logística': '✈️',
+      'hotel': '🏨',
+      'transporte': '🚌',
+      'compras': '🛍️',
+      'naturaleza': '🌳',
+      'playa': '🏖️',
+      'nocturno': '🌙',
+      'foto': '📸',
+      'mirador': '👀',
+      'religioso': '⛪',
+      'mercado': '🛒',
+      'café': '☕',
+      'bar': '🍺',
+      'show': '🎪',
+      'tour': '🗺️',
+      'default': '📍'
+    };
+    return icons[type?.toLowerCase()] || icons.default;
   }
 
   function ev(title, type, start, end, link, ticketRequired) {
@@ -342,7 +954,7 @@
     viewCity.style.display = tab === "city" ? "block" : "none";
     viewTimeline.style.display = tab === "timeline" ? "block" : "none";
     viewTickets.style.display = tab === "tickets" ? "block" : "none";
-    if (tab === "timeline") renderCalendar();
+    if (tab === "timeline") renderTimeline();
   }
 
   // ---------- Filter ----------
@@ -368,7 +980,7 @@
     renderAll();
     renderCity();
     renderTickets();
-    if (document.querySelector('.tab.active')?.dataset.tab === "timeline") renderCalendar();
+    if (document.querySelector('.tab.active')?.dataset.tab === "timeline") renderTimeline();
   });
 
   // ---------- Trip meta ----------
@@ -575,17 +1187,24 @@
     el.className = "event";
     el.dataset.eventId = e.id;
 
-    const timePart = e.startTime ? `${escapeHtml(e.startTime)}${e.endTime ? "–"+escapeHtml(e.endTime) : ""}` : "";
-    const ticketPart = e.ticketRequired ? `Ticket: ${e.ticketBought ? "comprado" : "pendiente"}` : "";
-    const linkPart = e.link ? `<a href="${escapeHtml(e.link)}" target="_blank">Link</a>` : "";
+    const icon = getEventIcon(e.type);
+    const timePart = e.startTime ? `${escapeHtml(e.startTime)}${e.endTime ? " – "+escapeHtml(e.endTime) : ""}` : "";
+    const linkPart = e.link ? `<a href="${escapeHtml(e.link)}" target="_blank">🔗 Link</a>` : "";
+
+    let ticketBadge = '';
+    if (e.ticketRequired) {
+      ticketBadge = e.ticketBought
+        ? `<span class="ticket-status bought">✓ Comprado</span>`
+        : `<span class="ticket-status pending">⚠ Pendiente</span>`;
+    }
 
     el.innerHTML = `
       <div class="left">
-        <div class="title">${escapeHtml(e.title)}</div>
+        <div class="title"><span class="icon">${icon}</span> ${escapeHtml(e.title)}</div>
         <div class="meta">
-          <span>Tipo: ${escapeHtml(e.type || "")}</span>
-          ${timePart ? `<span>${timePart}</span>` : ""}
-          ${ticketPart ? `<span>${ticketPart}</span>` : ""}
+          <span class="type-badge">${escapeHtml(e.type || "evento")}</span>
+          ${timePart ? `<span class="time">🕐 ${timePart}</span>` : ""}
+          ${ticketBadge}
           ${linkPart ? `<span>${linkPart}</span>` : ""}
         </div>
       </div>
@@ -782,47 +1401,173 @@
     });
   }
 
-  // ---------- Calendar ----------
-  let calendar;
-  function renderCalendar() {
-    const calEl = document.getElementById("calendar");
-    if (!calEl) return;
+  // ---------- Timeline Continua ----------
+  function renderTimeline() {
+    const container = document.getElementById("timelineContent");
+    if (!container) return;
 
     const filter = selCityFilter.value;
-    const events = [];
 
+    // Recopilar todos los días con su ciudad
+    const allDays = [];
+    let dayCount = 0;
     for (const c of trip.cities) {
       if (filter !== "all" && c.id !== filter) continue;
       for (const d of c.days) {
-        events.push({
-          id: "day_" + d.id,
-          title: c.name,
-          start: d.date,
-          allDay: true,
-          display: "background",
-          backgroundColor: c.color,
-          borderColor: c.color
-        });
-        for (const e of d.events) {
-          events.push({
-            id: e.id,
-            title: e.title,
-            start: d.date,
-            allDay: true,
-            color: "#1b2030"
-          });
-        }
+        dayCount++;
+        allDays.push({ city: c, day: d, dayNum: dayCount });
       }
     }
 
-    if (calendar) calendar.destroy();
-    calendar = new FullCalendar.Calendar(calEl, {
-      initialView: "dayGridMonth",
-      height: "auto",
-      locale: "es",
-      events
-    });
-    calendar.render();
+    // Calcular estadísticas
+    const totalDays = allDays.length;
+    const totalEvents = allDays.reduce((sum, item) => sum + (item.day.events?.length || 0), 0);
+    const ticketsPending = allDays.reduce((sum, item) =>
+      sum + (item.day.events?.filter(e => e.ticketRequired && !e.ticketBought).length || 0), 0);
+    const citiesCount = filter === "all" ? trip.cities.length : 1;
+
+    // Construir HTML
+    let html = `
+      <div class="timeline-container">
+        <div class="timeline-header">
+          <h2>🗓️ Timeline del viaje</h2>
+          <div class="timeline-stats">
+            <div class="timeline-stat">
+              <div class="value">${totalDays}</div>
+              <div class="label">Días</div>
+            </div>
+            <div class="timeline-stat">
+              <div class="value">${citiesCount}</div>
+              <div class="label">Ciudades</div>
+            </div>
+            <div class="timeline-stat">
+              <div class="value">${totalEvents}</div>
+              <div class="label">Eventos</div>
+            </div>
+            ${ticketsPending > 0 ? `
+            <div class="timeline-stat">
+              <div class="value" style="color: var(--warning)">${ticketsPending}</div>
+              <div class="label">Tickets pendientes</div>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="timeline-legend">
+          <div class="timeline-legend-item"><span class="icon">🏛️</span> Museo</div>
+          <div class="timeline-legend-item"><span class="icon">🚶</span> Paseo</div>
+          <div class="timeline-legend-item"><span class="icon">🎟️</span> Ticket</div>
+          <div class="timeline-legend-item"><span class="icon">🍽️</span> Comida</div>
+          <div class="timeline-legend-item"><span class="icon">🎭</span> Cultura</div>
+          <div class="timeline-legend-item"><span class="icon">🎨</span> Arte</div>
+          <div class="timeline-legend-item"><span class="icon">🏗️</span> Arquitectura</div>
+          <div class="timeline-legend-item"><span class="icon">🏘️</span> Barrio</div>
+          <div class="timeline-legend-item"><span class="icon">✈️</span> Logística</div>
+        </div>
+
+        <div class="timeline-scroll">
+          <div class="timeline-line"></div>
+    `;
+
+    if (allDays.length === 0) {
+      html += `
+        <div class="timeline-empty">
+          <div class="icon">🗺️</div>
+          <div>No hay días para mostrar</div>
+          <div class="small">Agregá ciudades y eventos para ver tu timeline</div>
+        </div>
+      `;
+    } else {
+      let lastCityId = null;
+
+      for (const { city, day, dayNum } of allDays) {
+        // Si cambió la ciudad, mostrar transición
+        if (lastCityId !== null && lastCityId !== city.id) {
+          html += `
+            <div class="timeline-city-change">
+              <div class="timeline-city-change-marker" style="background: ${city.color}; border-color: ${city.color}; color: white;">
+                🚀
+              </div>
+              <div class="timeline-city-change-content">
+                <span class="city-name">
+                  <span class="dot" style="background: ${city.color}; box-shadow: 0 0 8px ${city.color}"></span>
+                  Llegada a ${escapeHtml(city.name)}
+                </span>
+                <span class="arrow">→</span>
+                <span class="small">${city.nights} noches</span>
+              </div>
+            </div>
+          `;
+        }
+        lastCityId = city.id;
+
+        // Día
+        html += `
+          <div class="timeline-day">
+            <div class="timeline-day-marker" style="border-color: ${city.color}">${dayNum}</div>
+            <div class="timeline-day-header">
+              <span class="date">${formatDateES(day.date)}</span>
+              <span class="city-tag">
+                <span class="dot" style="background: ${city.color}; box-shadow: 0 0 6px ${city.color}"></span>
+                ${escapeHtml(city.name)}
+              </span>
+              ${city.hotel ? `<span class="hotel">🏨 ${escapeHtml(city.hotel)}</span>` : ''}
+            </div>
+            <div class="timeline-events">
+        `;
+
+        if (!day.events || day.events.length === 0) {
+          html += `
+            <div class="timeline-event" style="opacity: 0.6;">
+              <div class="icon">📝</div>
+              <div class="content">
+                <div class="event-title" style="color: var(--muted)">Sin eventos planificados</div>
+                <div class="event-meta">Día libre o por planificar</div>
+              </div>
+            </div>
+          `;
+        } else {
+          for (const e of day.events) {
+            const icon = getEventIcon(e.type);
+            const timePart = e.startTime ? `${escapeHtml(e.startTime)}${e.endTime ? ' – ' + escapeHtml(e.endTime) : ''}` : '';
+
+            let ticketBadge = '';
+            if (e.ticketRequired) {
+              ticketBadge = e.ticketBought
+                ? `<span class="ticket-badge bought">✓ Comprado</span>`
+                : `<span class="ticket-badge pending">⚠ Pendiente</span>`;
+            }
+
+            html += `
+              <div class="timeline-event">
+                <div class="icon">${icon}</div>
+                <div class="content">
+                  <div class="event-title">${escapeHtml(e.title)}</div>
+                  <div class="event-meta">
+                    ${timePart ? `<span class="event-time">🕐 ${timePart}</span>` : ''}
+                    <span class="event-type">${escapeHtml(e.type || 'evento')}</span>
+                    ${ticketBadge}
+                  </div>
+                </div>
+                ${e.link ? `<a href="${escapeHtml(e.link)}" target="_blank" class="event-link" title="Abrir link">🔗</a>` : ''}
+              </div>
+            `;
+          }
+        }
+
+        html += `
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    html += `
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
   }
 
   // ---------- PDF export ----------
@@ -926,7 +1671,7 @@
     renderCity();
     renderTickets();
     const active = document.querySelector(".tab.active")?.dataset.tab || "all";
-    if (active === "timeline" && renderCal) renderCalendar();
+    if (active === "timeline" && renderCal) renderTimeline();
   }
 
   // ---------- Init ----------
