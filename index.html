@@ -948,6 +948,27 @@
 <div class="wrap">
   <aside>
     <div class="card">
+      <div style="font-weight:900;">Vista</div>
+      <div class="tabs" style="margin-top:8px;">
+        <div class="tab active" data-tab="all">Todo</div>
+        <div class="tab" data-tab="city">Por ciudad</div>
+        <div class="tab" data-tab="timeline">Timeline</div>
+        <div class="tab" data-tab="tickets">Tickets</div>
+      </div>
+
+      <label>Filtrar ciudades</label>
+      <div class="city-filter-container">
+        <div class="city-filter-actions">
+          <button id="btnSelectAll">Todas</button>
+          <button id="btnSelectNone">Ninguna</button>
+        </div>
+        <div class="city-filter-list" id="cityFilterList"></div>
+        <div class="city-filter-count" id="cityFilterCount"></div>
+      </div>
+      <div class="small">Seleccioná una o más ciudades para ver/editar.</div>
+    </div>
+
+    <div class="card">
       <div class="row" style="justify-content:space-between;">
         <div>
           <div class="small">Viaje</div>
@@ -990,27 +1011,6 @@
       <div class="small">Arrastrá para reordenar. Los colores se reflejan en el calendario.</div>
       <div class="hr"></div>
       <div class="city-list" id="cityList"></div>
-    </div>
-
-    <div class="card">
-      <div style="font-weight:900;">Vista</div>
-      <div class="tabs" style="margin-top:8px;">
-        <div class="tab active" data-tab="all">Todo</div>
-        <div class="tab" data-tab="city">Por ciudad</div>
-        <div class="tab" data-tab="timeline">Timeline</div>
-        <div class="tab" data-tab="tickets">Tickets</div>
-      </div>
-
-      <label>Filtrar ciudades</label>
-      <div class="city-filter-container">
-        <div class="city-filter-actions">
-          <button id="btnSelectAll">Todas</button>
-          <button id="btnSelectNone">Ninguna</button>
-        </div>
-        <div class="city-filter-list" id="cityFilterList"></div>
-        <div class="city-filter-count" id="cityFilterCount"></div>
-      </div>
-      <div class="small">Seleccioná una o más ciudades para ver/editar.</div>
     </div>
   </aside>
 
@@ -1513,9 +1513,59 @@
     renderEverything();
   }
 
+  // ---------- UI State Preservation ----------
+  // Store open states to preserve across re-renders
+  let preservedOpenDays = new Set();
+  let preservedEditingEvents = new Set();
+  let preservedOpenCities = new Set();
+
+  function saveUIState() {
+    // Save open day details
+    preservedOpenDays = new Set();
+    document.querySelectorAll('details[data-day-id]').forEach(det => {
+      if (det.open) preservedOpenDays.add(det.dataset.dayId);
+    });
+
+    // Save open city details (in City view)
+    preservedOpenCities = new Set();
+    document.querySelectorAll('details[data-city-id]').forEach(det => {
+      if (det.open) preservedOpenCities.add(det.dataset.cityId);
+    });
+
+    // Save editing events
+    preservedEditingEvents = new Set();
+    document.querySelectorAll('.event.editing').forEach(el => {
+      preservedEditingEvents.add(el.dataset.eventId);
+    });
+  }
+
+  function restoreUIState() {
+    // Restore open day details
+    document.querySelectorAll('details[data-day-id]').forEach(det => {
+      if (preservedOpenDays.has(det.dataset.dayId)) {
+        det.open = true;
+      }
+    });
+
+    // Restore open city details
+    document.querySelectorAll('details[data-city-id]').forEach(det => {
+      if (preservedOpenCities.has(det.dataset.cityId)) {
+        det.open = true;
+      }
+    });
+
+    // Restore editing events
+    document.querySelectorAll('.event').forEach(el => {
+      if (preservedEditingEvents.has(el.dataset.eventId)) {
+        el.classList.add('editing');
+      }
+    });
+  }
+
   // ---------- Views ----------
   function dayDetails(city, day, openByDefault) {
     const det = document.createElement("details");
+    det.dataset.dayId = day.id; // Track by day ID for state preservation
     det.open = !!openByDefault; // para que veas eventos sin tener que abrir todo
     det.innerHTML = `
       <summary>
@@ -1773,6 +1823,7 @@
       if (!isCitySelected(c.id)) continue;
 
       const det = document.createElement("details");
+      det.dataset.cityId = c.id; // Track by city ID for state preservation
       det.open = true;
       det.innerHTML = `
         <summary>
@@ -2207,6 +2258,9 @@
 
   // ---------- Render orchestrator ----------
   function renderEverything(renderCal = true) {
+    // Save UI state before re-rendering
+    saveUIState();
+
     renderTripMeta();
     renderCities();
     rebuildCityFilter();
@@ -2215,6 +2269,9 @@
     renderTickets();
     const active = document.querySelector(".tab.active")?.dataset.tab || "all";
     if (active === "timeline" && renderCal) renderTimeline();
+
+    // Restore UI state after rendering
+    restoreUIState();
   }
 
   // ---------- Init ----------
