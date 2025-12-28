@@ -33,19 +33,28 @@ export function renderTimelineView(container) {
 
   // Collect all days with their city
   const allDays = [];
-  let dayCount = 0;
+  const dateToNumber = new Map(); // Map date -> day number
+  let uniqueDayCount = 0;
+
   for (const c of trip.cities) {
     if (!isCitySelected(c.id)) continue;
     for (let i = 0; i < c.days.length; i++) {
       const d = c.days[i];
-      dayCount++;
       const dayType = getDayType(c, i);
-      allDays.push({ city: c, day: d, dayNum: dayCount, dayIndex: i, dayType });
+
+      // Assign day number based on unique date
+      if (!dateToNumber.has(d.date)) {
+        uniqueDayCount++;
+        dateToNumber.set(d.date, uniqueDayCount);
+      }
+      const dayNum = dateToNumber.get(d.date);
+
+      allDays.push({ city: c, day: d, dayNum, dayIndex: i, dayType });
     }
   }
 
-  // Calculate stats
-  const totalDays = allDays.length;
+  // Calculate stats - use unique days, not total entries
+  const totalDays = uniqueDayCount;
   const totalEvents = allDays.reduce((sum, item) => sum + (item.day.events?.length || 0), 0);
   const ticketsPending = allDays.reduce((sum, item) =>
     sum + (item.day.events?.filter(e => e.ticketRequired && !e.ticketBought).length || 0), 0);
