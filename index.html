@@ -858,6 +858,85 @@
       border-color: var(--accent);
       color: var(--accent);
     }
+
+    /* ==================== MULTI-SELECT CITY FILTER ==================== */
+    .city-filter-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .city-filter-actions {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .city-filter-actions button {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+
+    .city-filter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+
+    .city-filter-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .city-filter-item:hover {
+      border-color: var(--line-light);
+      background: var(--panel-hover);
+    }
+
+    .city-filter-item.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .city-filter-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .city-filter-item .city-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .city-filter-item .city-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .city-filter-item .city-nights {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .city-filter-count {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 4px 0;
+    }
   </style>
 </head>
 <body>
@@ -922,9 +1001,16 @@
         <div class="tab" data-tab="tickets">Tickets</div>
       </div>
 
-      <label>Filtro ciudad</label>
-      <select id="selCityFilter"></select>
-      <div class="small">En "Todo" y "Por ciudad" podés ver todo o solo una ciudad.</div>
+      <label>Filtrar ciudades</label>
+      <div class="city-filter-container">
+        <div class="city-filter-actions">
+          <button id="btnSelectAll">Todas</button>
+          <button id="btnSelectNone">Ninguna</button>
+        </div>
+        <div class="city-filter-list" id="cityFilterList"></div>
+        <div class="city-filter-count" id="cityFilterCount"></div>
+      </div>
+      <div class="small">Seleccioná una o más ciudades para ver/editar.</div>
     </div>
   </aside>
 
@@ -1153,8 +1239,14 @@
   const inpImport = document.getElementById("inpImport");
 
   const cityList = document.getElementById("cityList");
-  const selCityFilter = document.getElementById("selCityFilter");
+  const cityFilterList = document.getElementById("cityFilterList");
+  const cityFilterCount = document.getElementById("cityFilterCount");
+  const btnSelectAll = document.getElementById("btnSelectAll");
+  const btnSelectNone = document.getElementById("btnSelectNone");
   const btnAddCity = document.getElementById("btnAddCity");
+
+  // Track selected cities (array of city IDs)
+  let selectedCityIds = [];
 
   const viewAll = document.getElementById("viewAll");
   const viewCity = document.getElementById("viewCity");
@@ -1179,29 +1271,91 @@
   }
 
   // ---------- Filter ----------
-  function rebuildCityFilter() {
-    const current = selCityFilter.value || "all";
-    selCityFilter.innerHTML = "";
-
-    const optAll = document.createElement("option");
-    optAll.value = "all";
-    optAll.textContent = "Todas las ciudades";
-    selCityFilter.appendChild(optAll);
-
-    for (const c of trip.cities) {
-      const o = document.createElement("option");
-      o.value = c.id;
-      o.textContent = c.name;
-      selCityFilter.appendChild(o);
+  function getSelectedCities() {
+    // If no cities selected, return all
+    if (selectedCityIds.length === 0) {
+      return trip.cities.map(c => c.id);
     }
-    selCityFilter.value = (current === "all" || trip.cities.some(c => c.id === current)) ? current : "all";
+    return selectedCityIds;
   }
 
-  selCityFilter.addEventListener("change", () => {
+  function isCitySelected(cityId) {
+    const selected = getSelectedCities();
+    return selected.includes(cityId);
+  }
+
+  function rebuildCityFilter() {
+    cityFilterList.innerHTML = "";
+
+    // Clean up selectedCityIds - remove IDs that no longer exist
+    selectedCityIds = selectedCityIds.filter(id => trip.cities.some(c => c.id === id));
+
+    // If no selection, select all by default
+    if (selectedCityIds.length === 0) {
+      selectedCityIds = trip.cities.map(c => c.id);
+    }
+
+    for (const c of trip.cities) {
+      const isSelected = selectedCityIds.includes(c.id);
+      const item = document.createElement("label");
+      item.className = `city-filter-item ${isSelected ? 'selected' : ''}`;
+      item.innerHTML = `
+        <input type="checkbox" data-city-id="${c.id}" ${isSelected ? 'checked' : ''} />
+        <div class="city-info">
+          <span class="dot" style="background:${c.color}; width:10px; height:10px;"></span>
+          <span class="city-name">${escapeHtml(c.name)}</span>
+          <span class="city-nights">${c.nights} noches</span>
+        </div>
+      `;
+
+      const checkbox = item.querySelector('input');
+      checkbox.addEventListener('change', (evt) => {
+        if (evt.target.checked) {
+          if (!selectedCityIds.includes(c.id)) {
+            selectedCityIds.push(c.id);
+          }
+          item.classList.add('selected');
+        } else {
+          selectedCityIds = selectedCityIds.filter(id => id !== c.id);
+          item.classList.remove('selected');
+        }
+        updateCityFilterCount();
+        triggerFilterChange();
+      });
+
+      cityFilterList.appendChild(item);
+    }
+
+    updateCityFilterCount();
+  }
+
+  function updateCityFilterCount() {
+    const total = trip.cities.length;
+    const selected = selectedCityIds.length;
+    if (selected === total || selected === 0) {
+      cityFilterCount.textContent = `Mostrando todas las ciudades (${total})`;
+    } else {
+      cityFilterCount.textContent = `Mostrando ${selected} de ${total} ciudades`;
+    }
+  }
+
+  function triggerFilterChange() {
     renderAll();
     renderCity();
     renderTickets();
     if (document.querySelector('.tab.active')?.dataset.tab === "timeline") renderTimeline();
+  }
+
+  btnSelectAll.addEventListener("click", () => {
+    selectedCityIds = trip.cities.map(c => c.id);
+    rebuildCityFilter();
+    triggerFilterChange();
+  });
+
+  btnSelectNone.addEventListener("click", () => {
+    selectedCityIds = [];
+    rebuildCityFilter();
+    triggerFilterChange();
   });
 
   // ---------- Trip meta ----------
@@ -1577,7 +1731,6 @@
 
   function renderAll() {
     viewAll.innerHTML = "";
-    const filter = selCityFilter.value;
 
     const card = document.createElement("div");
     card.className = "card";
@@ -1589,7 +1742,7 @@
     card.appendChild(daysWrap);
 
     for (const c of trip.cities) {
-      if (filter !== "all" && c.id !== filter) continue;
+      if (!isCitySelected(c.id)) continue;
 
       const head = document.createElement("div");
       head.className = "city-pill";
@@ -1606,7 +1759,6 @@
 
   function renderCity() {
     viewCity.innerHTML = "";
-    const filter = selCityFilter.value;
 
     const card = document.createElement("div");
     card.className = "card";
@@ -1618,7 +1770,7 @@
     card.appendChild(list);
 
     for (const c of trip.cities) {
-      if (filter !== "all" && c.id !== filter) continue;
+      if (!isCitySelected(c.id)) continue;
 
       const det = document.createElement("details");
       det.open = true;
@@ -1644,7 +1796,6 @@
 
   function renderTickets() {
     viewTickets.innerHTML = "";
-    const filter = selCityFilter.value;
 
     const card = document.createElement("div");
     card.className = "card";
@@ -1657,7 +1808,7 @@
     card.appendChild(wrap);
 
     for (const c of trip.cities) {
-      if (filter !== "all" && c.id !== filter) continue;
+      if (!isCitySelected(c.id)) continue;
       for (const d of c.days) {
         for (const e of d.events) {
           if (!e.ticketRequired) continue;
@@ -1788,13 +1939,11 @@
     const container = document.getElementById("timelineContent");
     if (!container) return;
 
-    const filter = selCityFilter.value;
-
     // Recopilar todos los días con su ciudad
     const allDays = [];
     let dayCount = 0;
     for (const c of trip.cities) {
-      if (filter !== "all" && c.id !== filter) continue;
+      if (!isCitySelected(c.id)) continue;
       for (let i = 0; i < c.days.length; i++) {
         const d = c.days[i];
         dayCount++;
@@ -1808,7 +1957,7 @@
     const totalEvents = allDays.reduce((sum, item) => sum + (item.day.events?.length || 0), 0);
     const ticketsPending = allDays.reduce((sum, item) =>
       sum + (item.day.events?.filter(e => e.ticketRequired && !e.ticketBought).length || 0), 0);
-    const citiesCount = filter === "all" ? trip.cities.length : 1;
+    const citiesCount = getSelectedCities().length;
 
     // Construir HTML
     let html = `
