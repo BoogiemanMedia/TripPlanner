@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trip Planner Local</title>
+
+  <!-- Drag & drop -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+
+  <!-- PDF export -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<header>
+  <h1>Trip Planner Local</h1>
+  <div class="small">Todo local, drag & drop, timeline, export JSON + PDF</div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="card">
+      <div style="font-weight:900;">Vista</div>
+      <div class="tabs" style="margin-top:8px;">
+        <div class="tab active" data-tab="all">Todo</div>
+        <div class="tab" data-tab="city">Por ciudad</div>
+        <div class="tab" data-tab="timeline">Timeline</div>
+        <div class="tab" data-tab="tickets">Tickets</div>
+      </div>
+
+      <label>Filtrar ciudades</label>
+      <div class="city-filter-container">
+        <div class="city-filter-actions">
+          <button id="btnSelectAll">Todas</button>
+          <button id="btnSelectNone">Ninguna</button>
+        </div>
+        <div class="city-filter-list" id="cityFilterList"></div>
+        <div class="city-filter-count" id="cityFilterCount"></div>
+      </div>
+      <div class="small">Seleccioná una o más ciudades para ver/editar.</div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div class="small">Viaje</div>
+          <div style="font-weight:900; font-size:14px;" id="tripTitle"></div>
+          <div class="small" id="tripDates"></div>
+        </div>
+        <button class="primary" id="btnReset">Reset demo</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div>
+          <label>Nombre del viaje</label>
+          <input id="inpTripName" />
+        </div>
+        <div>
+          <label>Fecha inicio</label>
+          <input id="inpStartDate" type="date" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <button class="primary" id="btnSaveTrip">Guardar</button>
+        <button id="btnExport">Export JSON</button>
+        <button class="primary" id="btnExportPdf">Export PDF</button>
+        <label for="inpImport" class="tab" style="cursor:pointer;">Import JSON</label>
+        <input id="inpImport" type="file" accept="application/json" style="display:none;" />
+      </div>
+      <div class="small">
+        Si cambiás fecha inicio o noches, el sistema intenta preservar eventos por orden de días.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div style="font-weight:900;">Ciudades</div>
+        <button class="primary" id="btnAddCity">+ Ciudad</button>
+      </div>
+      <div class="small">Arrastrá para reordenar. Los colores se reflejan en el calendario.</div>
+      <div class="hr"></div>
+      <div class="city-list" id="cityList"></div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="viewAll" class="view"></div>
+    <div id="viewCity" class="view" style="display:none;"></div>
+    <div id="viewTimeline" class="view" style="display:none;">
+      <div class="card">
+        <div id="timelineContent"></div>
+      </div>
+    </div>
+    <div id="viewTickets" class="view" style="display:none;"></div>
+  </main>
+</div>
+
+<!-- Main App Module -->
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
