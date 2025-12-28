@@ -2043,19 +2043,28 @@
 
     // Recopilar todos los días con su ciudad
     const allDays = [];
-    let dayCount = 0;
+    const dateToNumber = new Map(); // Mapea fecha -> número de día
+    let uniqueDayCount = 0;
+
     for (const c of trip.cities) {
       if (!isCitySelected(c.id)) continue;
       for (let i = 0; i < c.days.length; i++) {
         const d = c.days[i];
-        dayCount++;
         const dayType = getDayType(c, i);
-        allDays.push({ city: c, day: d, dayNum: dayCount, dayIndex: i, dayType });
+
+        // Asignar número de día basado en la fecha única
+        if (!dateToNumber.has(d.date)) {
+          uniqueDayCount++;
+          dateToNumber.set(d.date, uniqueDayCount);
+        }
+        const dayNum = dateToNumber.get(d.date);
+
+        allDays.push({ city: c, day: d, dayNum, dayIndex: i, dayType });
       }
     }
 
-    // Calcular estadísticas
-    const totalDays = allDays.length;
+    // Calcular estadísticas - usar días únicos, no total de entries
+    const totalDays = uniqueDayCount;
     const totalEvents = allDays.reduce((sum, item) => sum + (item.day.events?.length || 0), 0);
     const ticketsPending = allDays.reduce((sum, item) =>
       sum + (item.day.events?.filter(e => e.ticketRequired && !e.ticketBought).length || 0), 0);
