@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trip Planner Local</title>
+
+  <!-- Drag & drop -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+
+  <!-- Calendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+  <!-- PDF export -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root { --bg:#0b0c10; --panel:#12141b; --muted:#9aa4b2; --text:#e7edf6; --line:#232838; --chip:#1b2030; }
+    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial; background:var(--bg); color:var(--text); }
+    header { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; }
+    header h1 { margin:0; font-size:16px; font-weight:800; letter-spacing:.2px; }
+    .wrap { display:grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 52px); }
+    aside { border-right:1px solid var(--line); padding:12px; background:var(--panel); }
+    main { padding:12px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    label { font-size:12px; color:var(--muted); }
+    input, select, textarea, button { border-radius:10px; border:1px solid var(--line); background:#0f1117; color:var(--text); padding:10px 10px; font-size:13px; }
+    button { cursor:pointer; }
+    button.primary { background:#1a2a54; border-color:#2a3b70; }
+    button.danger { background:#421a1a; border-color:#6b2a2a; }
+    .small { font-size:12px; color:var(--muted); }
+    .tabs { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+    .tab { padding:8px 10px; border:1px solid var(--line); border-radius:999px; background:#0f1117; cursor:pointer; }
+    .tab.active { background:#1b2030; }
+    .city-pill { padding:8px 10px; border-radius:999px; border:1px solid var(--line); background:var(--chip); display:flex; gap:8px; align-items:center; }
+    .dot { width:10px; height:10px; border-radius:999px; display:inline-block; }
+    .city-list { display:flex; flex-direction:column; gap:8px; }
+    .city-item { padding:10px; border:1px solid var(--line); border-radius:10px; background:#0f1117; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+    .city-item .handle { cursor:grab; color:var(--muted); }
+    .city-item .name { font-weight:700; }
+    .days { display:flex; flex-direction:column; gap:10px; }
+    details { border:1px solid var(--line); border-radius:10px; background:#0f1117; padding:10px; }
+    summary { cursor:pointer; font-weight:800; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .events { margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+    .event { border:1px solid var(--line); border-radius:10px; background:#0b0c10; padding:10px; display:flex; justify-content:space-between; gap:10px; }
+    .event .left { display:flex; flex-direction:column; gap:4px; }
+    .event .title { font-weight:800; }
+    .event .meta { color:var(--muted); font-size:12px; display:flex; gap:8px; flex-wrap:wrap; }
+    .event .right { display:flex; gap:6px; align-items:center; }
+    a { color:#a8c2ff; text-decoration:none; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .hr { height:1px; background:var(--line); margin:10px 0; }
+    #calendar { background:#0f1117; border:1px solid var(--line); border-radius:10px; padding:10px; }
+    .ticket { display:flex; gap:10px; align-items:flex-start; padding:10px; border:1px solid var(--line); border-radius:10px; background:#0f1117; }
+    .ticket .tname { font-weight:800; }
+    .pill { padding:2px 8px; border-radius:999px; border:1px solid var(--line); background:#0f1117; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Trip Planner Local</h1>
+  <div class="small">Todo local, drag & drop, timeline, export JSON + PDF</div>
+</header>
+
+<div class="wrap">
+  <aside>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div class="small">Viaje</div>
+          <div style="font-weight:900; font-size:14px;" id="tripTitle"></div>
+          <div class="small" id="tripDates"></div>
+        </div>
+        <button class="primary" id="btnReset">Reset demo</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div>
+          <label>Nombre del viaje</label>
+          <input id="inpTripName" />
+        </div>
+        <div>
+          <label>Fecha inicio</label>
+          <input id="inpStartDate" type="date" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <button class="primary" id="btnSaveTrip">Guardar</button>
+        <button id="btnExport">Export JSON</button>
+        <button class="primary" id="btnExportPdf">Export PDF</button>
+        <label for="inpImport" class="tab" style="cursor:pointer;">Import JSON</label>
+        <input id="inpImport" type="file" accept="application/json" style="display:none;" />
+      </div>
+      <div class="small">
+        Si cambiás fecha inicio o noches, el sistema intenta preservar eventos por orden de días.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <div style="font-weight:900;">Ciudades</div>
+        <button class="primary" id="btnAddCity">+ Ciudad</button>
+      </div>
+      <div class="small">Arrastrá para reordenar. Los colores se reflejan en el calendario.</div>
+      <div class="hr"></div>
+      <div class="city-list" id="cityList"></div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:900;">Vista</div>
+      <div class="tabs" style="margin-top:8px;">
+        <div class="tab active" data-tab="all">Todo</div>
+        <div class="tab" data-tab="city">Por ciudad</div>
+        <div class="tab" data-tab="timeline">Timeline</div>
+        <div class="tab" data-tab="tickets">Tickets</div>
+      </div>
+
+      <label>Filtro ciudad</label>
+      <select id="selCityFilter"></select>
+      <div class="small">En "Todo" y "Por ciudad" podés ver todo o solo una ciudad.</div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="viewAll" class="view"></div>
+    <div id="viewCity" class="view" style="display:none;"></div>
+    <div id="viewTimeline" class="view" style="display:none;">
+      <div class="card">
+        <div style="font-weight:900; margin-bottom:8px;">Timeline</div>
+        <div id="calendar"></div>
+      </div>
+    </div>
+    <div id="viewTickets" class="view" style="display:none;"></div>
+  </main>
+</div>
+
+<script>
+  const STORAGE_KEY = "trip_planner_local_v2";
+
+  function uid() {
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
+  function addDays(dateStr, n) {
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0,10);
+  }
+
+  function formatDateES(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("es-ES", { weekday:"short", year:"numeric", month:"short", day:"numeric" });
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[m]));
+  }
+
+  function ev(title, type, start, end, link, ticketRequired) {
+    return {
+      id: uid(),
+      title,
+      type,
+      startTime: start || "",
+      endTime: end || "",
+      link: link || "",
+      notes: "",
+      ticketRequired: !!ticketRequired,
+      ticketBought: false
+    };
+  }
+
+  function defaultTrip() {
+    const start = "2026-01-29";
+    const cities = [
+      { id: uid(), name:"Madrid (inicio)", color:"#4f7cff", nights:3, hotel:"UMusic Hotel Madrid", days: [] },
+      { id: uid(), name:"Valencia", color:"#ff7a59", nights:3, hotel:"Only YOU Hotel Valencia", days: [] },
+      { id: uid(), name:"Roma", color:"#3ddc97", nights:6, hotel:"Hotel Splendide Royal", days: [] },
+      { id: uid(), name:"Florencia", color:"#c77dff", nights:2, hotel:"The Excelsior, a Luxury Collection Hotel, Florence", days: [] },
+      { id: uid(), name:"Venecia", color:"#ffd166", nights:2, hotel:"Ca' di Dio Hotel", days: [] },
+      { id: uid(), name:"Madrid (final)", color:"#4f7cff", nights:4, hotel:"Gran Hotel Inglés", days: [] },
+    ];
+
+    const trip = { id: uid(), name:"Europa 2026", startDate:start, cities };
+    regenerateDaysPreserve(trip, null); // genera días
+    seedBasePlan(trip);                // carga planes base (eventos)
+    return trip;
+  }
+
+  function loadTrip() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  }
+
+  function saveTrip(trip) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
+  }
+
+  // Preservar eventos al cambiar startDate / nights / orden ciudades
+  function regenerateDaysPreserve(trip, prevTrip) {
+    // Map previo: cityId -> array de arrays de eventos por índice de día
+    const prevMap = new Map();
+    if (prevTrip?.cities?.length) {
+      for (const c of prevTrip.cities) {
+        const dayEvents = (c.days || []).map(d => (d.events || []).map(e => ({...e})));
+        prevMap.set(c.id, dayEvents);
+      }
+    }
+
+    let cursor = trip.startDate;
+    for (const city of trip.cities) {
+      const prevDayEvents = prevMap.get(city.id) || [];
+      const newDays = [];
+      for (let i=0; i<city.nights; i++) {
+        const date = addDays(cursor, i);
+        const events = (prevDayEvents[i] ? prevDayEvents[i] : []).map(e => ({...e}));
+        newDays.push({ id: uid(), date, label: "Día " + (i+1), events });
+      }
+      city.days = newDays;
+      cursor = addDays(cursor, city.nights);
+    }
+    trip.endDate = cursor;
+  }
+
+  function seedBasePlan(trip) {
+    // Si ya hay eventos cargados, no pisa nada
+    const hasAny = trip.cities.some(c => (c.days||[]).some(d => (d.events||[]).length > 0));
+    if (hasAny) return;
+
+    const byName = (n) => trip.cities.find(c => c.name === n);
+
+    // MADRID INICIO
+    const madridIni = byName("Madrid (inicio)");
+    if (madridIni) {
+      madridIni.days[0].events.push(ev("Llegada + Gran Vía + Malasaña", "paseo", "tarde", "", "", false));
+      madridIni.days[1].events.push(ev("Museo Reina Sofía (Guernica + recorrido moderno)", "museo", "10:00", "12:30", "https://www.museoreinasofia.es", true));
+      madridIni.days[1].events.push(ev("Barrio de las Letras", "paseo", "13:30", "", "", false));
+      madridIni.days[1].events.push(ev("Matadero Madrid", "cultura", "17:00", "", "https://www.mataderomadrid.org", false));
+      madridIni.days[2].events.push(ev("Madrid Río", "paseo", "11:00", "", "", false));
+      madridIni.days[2].events.push(ev("Templo de Debod (atardecer)", "paseo", "18:00", "", "", false));
+    }
+
+    // VALENCIA
+    const val = byName("Valencia");
+    if (val) {
+      val.days[0].events.push(ev("Ciudad de las Artes y las Ciencias (exterior)", "arquitectura", "11:00", "", "", false));
+      val.days[0].events.push(ev("Marina de Valencia", "paseo", "16:30", "", "", false));
+      val.days[1].events.push(ev("Ruzafa: arte urbano + cafés", "barrio", "11:00", "", "", false));
+      val.days[2].events.push(ev("Jardín del Turia (tramo central)", "paseo", "11:00", "", "", false));
+    }
+
+    // ROMA (con historia + entradas)
+    const roma = byName("Roma");
+    if (roma) {
+      roma.days[0].events.push(ev("Coliseo por dentro + Foro + Palatino", "ticket", "09:30", "14:00", "https://www.coopculture.it", true));
+      roma.days[1].events.push(ev("Museos Vaticanos + Capilla Sixtina", "ticket", "09:00", "13:30", "https://www.museivaticani.va", true));
+      roma.days[1].events.push(ev("Basílica San Pedro + Cúpula", "ticket", "14:30", "16:30", "https://www.vatican.va", true));
+      roma.days[2].events.push(ev("Panteón", "ticket", "11:00", "12:00", "https://www.museiitaliani.it", true));
+      roma.days[2].events.push(ev("Piazza Navona + Trevi + Campo de’ Fiori", "paseo", "12:30", "", "", false));
+      roma.days[3].events.push(ev("Castel Sant’Angelo", "ticket", "10:30", "12:30", "https://www.castelsantangelo.beniculturali.it", true));
+      roma.days[3].events.push(ev("San Luigi dei Francesi (Caravaggio)", "arte", "16:30", "", "", false));
+      roma.days[4].events.push(ev("MAXXI", "museo", "11:00", "13:00", "https://www.maxxi.art", false));
+      roma.days[4].events.push(ev("Testaccio (barrio)", "barrio", "17:00", "", "", false));
+      roma.days[5].events.push(ev("Trastevere + Gianicolo", "paseo", "16:00", "", "", false));
+    }
+
+    // FLORENCIA (Miguel Ángel + Leonardo)
+    const flo = byName("Florencia");
+    if (flo) {
+      flo.days[0].events.push(ev("Galleria dell’Accademia (David de Miguel Ángel)", "ticket", "09:00", "11:00", "https://www.galleriaaccademiafirenze.it", true));
+      flo.days[0].events.push(ev("Duomo exterior + Piazza della Signoria", "paseo", "12:30", "", "", false));
+      flo.days[1].events.push(ev("Galería Uffizi (Leonardo, Botticelli, Miguel Ángel)", "ticket", "09:00", "12:30", "https://www.uffizi.it", true));
+      flo.days[1].events.push(ev("Oltrarno + artesanos", "barrio", "16:30", "", "", false));
+    }
+
+    // VENECIA
+    const ven = byName("Venecia");
+    if (ven) {
+      ven.days[0].events.push(ev("Dorsoduro + paseo libre", "paseo", "11:00", "", "", false));
+      ven.days[0].events.push(ev("Carnaval (ambiente visual)", "cultura", "18:00", "", "", false));
+      ven.days[1].events.push(ev("Peggy Guggenheim Collection", "ticket", "10:30", "12:30", "https://www.guggenheim-venice.it", true));
+    }
+
+    // MADRID FINAL (Bernabéu + tortilla + festival)
+    const madridFin = byName("Madrid (final)");
+    if (madridFin) {
+      madridFin.days[0].events.push(ev("Barrio de las Letras + cafés", "paseo", "12:00", "", "", false));
+      madridFin.days[1].events.push(ev("Tour Bernabéu", "ticket", "10:00", "12:00", "https://www.realmadrid.com/estadio-santiago-bernabeu", true));
+      madridFin.days[1].events.push(ev("Tortilla cerca del Bernabéu", "comida", "13:00", "", "", false));
+      madridFin.days[2].events.push(ev("Madrid Design Festival (1 o 2 sedes)", "diseño", "12:00", "", "", false));
+      madridFin.days[2].events.push(ev("Música (concierto o plan nocturno)", "música", "21:00", "", "", false));
+      madridFin.days[3].events.push(ev("Cierre + regreso", "logística", "mañana", "", "", false));
+    }
+  }
+
+  // ---------- State ----------
+  let trip = loadTrip() || defaultTrip();
+  // Si el usuario ya guardó una versión sin eventos por algún bug previo, re-seed:
+  seedBasePlan(trip);
+  saveTrip(trip);
+
+  // ---------- UI refs ----------
+  const tripTitle = document.getElementById("tripTitle");
+  const tripDates = document.getElementById("tripDates");
+  const inpTripName = document.getElementById("inpTripName");
+  const inpStartDate = document.getElementById("inpStartDate");
+  const btnSaveTrip = document.getElementById("btnSaveTrip");
+  const btnReset = document.getElementById("btnReset");
+  const btnExport = document.getElementById("btnExport");
+  const btnExportPdf = document.getElementById("btnExportPdf");
+  const inpImport = document.getElementById("inpImport");
+
+  const cityList = document.getElementById("cityList");
+  const selCityFilter = document.getElementById("selCityFilter");
+  const btnAddCity = document.getElementById("btnAddCity");
+
+  const viewAll = document.getElementById("viewAll");
+  const viewCity = document.getElementById("viewCity");
+  const viewTimeline = document.getElementById("viewTimeline");
+  const viewTickets = document.getElementById("viewTickets");
+
+  // ---------- Tabs ----------
+  document.querySelectorAll(".tab").forEach(t => {
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      showTab(t.dataset.tab);
+    });
+  });
+
+  function showTab(tab) {
+    viewAll.style.display = tab === "all" ? "block" : "none";
+    viewCity.style.display = tab === "city" ? "block" : "none";
+    viewTimeline.style.display = tab === "timeline" ? "block" : "none";
+    viewTickets.style.display = tab === "tickets" ? "block" : "none";
+    if (tab === "timeline") renderCalendar();
+  }
+
+  // ---------- Filter ----------
+  function rebuildCityFilter() {
+    const current = selCityFilter.value || "all";
+    selCityFilter.innerHTML = "";
+
+    const optAll = document.createElement("option");
+    optAll.value = "all";
+    optAll.textContent = "Todas las ciudades";
+    selCityFilter.appendChild(optAll);
+
+    for (const c of trip.cities) {
+      const o = document.createElement("option");
+      o.value = c.id;
+      o.textContent = c.name;
+      selCityFilter.appendChild(o);
+    }
+    selCityFilter.value = (current === "all" || trip.cities.some(c => c.id === current)) ? current : "all";
+  }
+
+  selCityFilter.addEventListener("change", () => {
+    renderAll();
+    renderCity();
+    renderTickets();
+    if (document.querySelector('.tab.active')?.dataset.tab === "timeline") renderCalendar();
+  });
+
+  // ---------- Trip meta ----------
+  function renderTripMeta() {
+    tripTitle.textContent = trip.name;
+    const totalNights = trip.cities.reduce((s,c) => s + c.nights, 0);
+    const endExclusive = addDays(trip.startDate, totalNights);
+    tripDates.textContent = `${formatDateES(trip.startDate)} → ${formatDateES(addDays(endExclusive, -1))}`;
+    inpTripName.value = trip.name;
+    inpStartDate.value = trip.startDate;
+  }
+
+  btnSaveTrip.addEventListener("click", () => {
+    const prev = JSON.parse(JSON.stringify(trip));
+
+    trip.name = inpTripName.value.trim() || trip.name;
+    trip.startDate = inpStartDate.value || trip.startDate;
+
+    regenerateDaysPreserve(trip, prev);
+    saveTrip(trip);
+    rebuildCityFilter();
+    renderEverything();
+  });
+
+  btnReset.addEventListener("click", () => {
+    trip = defaultTrip();
+    saveTrip(trip);
+    rebuildCityFilter();
+    renderEverything();
+  });
+
+  btnExport.addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(trip, null, 2)], { type:"application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${trip.name.replace(/\s+/g,'_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  inpImport.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const obj = JSON.parse(text);
+      trip = obj;
+      // si el import trae ciudades sin days, regeneramos; si trae days, respetamos
+      if (!trip.cities?.some(c => c.days?.length)) {
+        const prev = null;
+        regenerateDaysPreserve(trip, prev);
+      }
+      seedBasePlan(trip); // si vino vacío, carga base
+      saveTrip(trip);
+      rebuildCityFilter();
+      renderEverything();
+    } catch {
+      alert("JSON inválido");
+    }
+    inpImport.value = "";
+  });
+
+  // ---------- Cities ----------
+  function renderCities() {
+    cityList.innerHTML = "";
+    for (const c of trip.cities) {
+      const item = document.createElement("div");
+      item.className = "city-item";
+      item.dataset.cityId = c.id;
+
+      item.innerHTML = `
+        <div class="row" style="gap:10px;">
+          <div class="handle">☰</div>
+          <span class="dot" style="background:${c.color}"></span>
+          <div>
+            <div class="name">${escapeHtml(c.name)}</div>
+            <div class="small">${escapeHtml(c.hotel || "")} · ${c.nights} noches</div>
+          </div>
+        </div>
+        <div class="row">
+          <button data-act="edit">Editar</button>
+          <button class="danger" data-act="del">Borrar</button>
+        </div>
+      `;
+
+      item.querySelector('[data-act="edit"]').addEventListener("click", () => editCity(c.id));
+      item.querySelector('[data-act="del"]').addEventListener("click", () => deleteCity(c.id));
+      cityList.appendChild(item);
+    }
+
+    Sortable.create(cityList, {
+      handle: ".handle",
+      animation: 150,
+      onEnd: () => {
+        const prev = JSON.parse(JSON.stringify(trip));
+        const ids = Array.from(cityList.querySelectorAll(".city-item")).map(x => x.dataset.cityId);
+        trip.cities = ids.map(id => trip.cities.find(c => c.id === id));
+
+        regenerateDaysPreserve(trip, prev);
+        saveTrip(trip);
+        rebuildCityFilter();
+        renderEverything();
+      }
+    });
+  }
+
+  btnAddCity.addEventListener("click", () => {
+    const prev = JSON.parse(JSON.stringify(trip));
+    const c = { id: uid(), name:"Nueva ciudad", color:"#7dd3fc", nights:2, hotel:"", days:[] };
+    trip.cities.push(c);
+    regenerateDaysPreserve(trip, prev);
+    saveTrip(trip);
+    rebuildCityFilter();
+    renderEverything();
+    editCity(c.id);
+  });
+
+  function editCity(cityId) {
+    const prev = JSON.parse(JSON.stringify(trip));
+    const c = trip.cities.find(x => x.id === cityId);
+    if (!c) return;
+
+    const name = prompt("Nombre ciudad:", c.name);
+    if (name === null) return;
+    c.name = name.trim() || c.name;
+
+    const nightsStr = prompt("Noches:", String(c.nights));
+    if (nightsStr === null) return;
+    c.nights = Math.max(1, parseInt(nightsStr,10) || c.nights);
+
+    const hotel = prompt("Hotel:", c.hotel || "");
+    if (hotel !== null) c.hotel = hotel;
+
+    const color = prompt("Color (hex), ej #4f7cff:", c.color);
+    if (color !== null && /^#([0-9a-fA-F]{6})$/.test(color.trim())) c.color = color.trim();
+
+    regenerateDaysPreserve(trip, prev);
+    saveTrip(trip);
+    rebuildCityFilter();
+    renderEverything();
+  }
+
+  function deleteCity(cityId) {
+    const c = trip.cities.find(x => x.id === cityId);
+    if (!c) return;
+    if (!confirm(`Borrar ciudad "${c.name}"?`)) return;
+
+    const prev = JSON.parse(JSON.stringify(trip));
+    trip.cities = trip.cities.filter(x => x.id !== cityId);
+    regenerateDaysPreserve(trip, prev);
+
+    saveTrip(trip);
+    rebuildCityFilter();
+    renderEverything();
+  }
+
+  // ---------- Views ----------
+  function dayDetails(city, day, openByDefault) {
+    const det = document.createElement("details");
+    det.open = !!openByDefault; // para que veas eventos sin tener que abrir todo
+    det.innerHTML = `
+      <summary>
+        <span>${formatDateES(day.date)}</span>
+        <span class="small">${escapeHtml(city.name)}</span>
+      </summary>
+    `;
+
+    const box = document.createElement("div");
+    box.style.marginTop = "10px";
+
+    const btnRow = document.createElement("div");
+    btnRow.className = "row";
+    btnRow.innerHTML = `
+      <button class="primary">+ Evento</button>
+      <span class="small">Arrastrá para reordenar o mover entre días.</span>
+      <span class="pill small">${escapeHtml(city.hotel || "")}</span>
+    `;
+    btnRow.querySelector("button").addEventListener("click", () => {
+      day.events.push(ev("Nuevo evento", "paseo", "", "", "", false));
+      saveTrip(trip);
+      renderEverything();
+    });
+
+    const events = document.createElement("div");
+    events.className = "events";
+    events.dataset.cityId = city.id;
+    events.dataset.dayId = day.id;
+
+    for (const e of day.events) {
+      events.appendChild(eventCard(city, day, e));
+    }
+
+    box.appendChild(btnRow);
+    box.appendChild(events);
+    det.appendChild(box);
+
+    wireDnD(events);
+    return det;
+  }
+
+  function eventCard(city, day, e) {
+    const el = document.createElement("div");
+    el.className = "event";
+    el.dataset.eventId = e.id;
+
+    const timePart = e.startTime ? `${escapeHtml(e.startTime)}${e.endTime ? "–"+escapeHtml(e.endTime) : ""}` : "";
+    const ticketPart = e.ticketRequired ? `Ticket: ${e.ticketBought ? "comprado" : "pendiente"}` : "";
+    const linkPart = e.link ? `<a href="${escapeHtml(e.link)}" target="_blank">Link</a>` : "";
+
+    el.innerHTML = `
+      <div class="left">
+        <div class="title">${escapeHtml(e.title)}</div>
+        <div class="meta">
+          <span>Tipo: ${escapeHtml(e.type || "")}</span>
+          ${timePart ? `<span>${timePart}</span>` : ""}
+          ${ticketPart ? `<span>${ticketPart}</span>` : ""}
+          ${linkPart ? `<span>${linkPart}</span>` : ""}
+        </div>
+      </div>
+      <div class="right">
+        <button data-act="edit">Editar</button>
+        <button class="danger" data-act="del">Borrar</button>
+      </div>
+    `;
+
+    el.querySelector('[data-act="edit"]').addEventListener("click", () => editEvent(e));
+    el.querySelector('[data-act="del"]').addEventListener("click", () => {
+      // remove from whichever day contains it
+      for (const c of trip.cities) {
+        for (const d of c.days) {
+          const idx = d.events.findIndex(x => x.id === e.id);
+          if (idx >= 0) {
+            d.events.splice(idx, 1);
+            saveTrip(trip);
+            renderEverything();
+            return;
+          }
+        }
+      }
+    });
+
+    return el;
+  }
+
+  function editEvent(e) {
+    const title = prompt("Título:", e.title);
+    if (title === null) return;
+    e.title = title.trim() || e.title;
+
+    const type = prompt("Tipo (museo, paseo, ticket, comida, diseño, música, logística):", e.type || "");
+    if (type !== null) e.type = type.trim();
+
+    const start = prompt("Hora inicio (ej 10:00 o 'tarde'):", e.startTime || "");
+    if (start !== null) e.startTime = start.trim();
+
+    const end = prompt("Hora fin (opcional):", e.endTime || "");
+    if (end !== null) e.endTime = end.trim();
+
+    const link = prompt("Link (opcional):", e.link || "");
+    if (link !== null) e.link = link.trim();
+
+    e.ticketRequired = confirm("Requiere ticket?");
+    if (!e.ticketRequired) e.ticketBought = false;
+    if (e.ticketRequired) e.ticketBought = confirm("Ticket comprado?");
+
+    saveTrip(trip);
+    renderEverything(false);
+  }
+
+  function renderAll() {
+    viewAll.innerHTML = "";
+    const filter = selCityFilter.value;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Todo el viaje</div>`;
+    viewAll.appendChild(card);
+
+    const daysWrap = document.createElement("div");
+    daysWrap.className = "days";
+    card.appendChild(daysWrap);
+
+    for (const c of trip.cities) {
+      if (filter !== "all" && c.id !== filter) continue;
+
+      const head = document.createElement("div");
+      head.className = "city-pill";
+      head.innerHTML = `<span class="dot" style="background:${c.color}"></span>
+                        <div><b>${escapeHtml(c.name)}</b> <span class="small">· ${c.nights} noches · ${escapeHtml(c.hotel||"")}</span></div>`;
+      daysWrap.appendChild(head);
+
+      c.days.forEach((d, idx) => {
+        // Abrimos por default el primer día de cada ciudad para que veas eventos al toque
+        daysWrap.appendChild(dayDetails(c, d, idx === 0));
+      });
+    }
+  }
+
+  function renderCity() {
+    viewCity.innerHTML = "";
+    const filter = selCityFilter.value;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Vista por ciudad</div>`;
+    viewCity.appendChild(card);
+
+    const list = document.createElement("div");
+    list.className = "days";
+    card.appendChild(list);
+
+    for (const c of trip.cities) {
+      if (filter !== "all" && c.id !== filter) continue;
+
+      const det = document.createElement("details");
+      det.open = true;
+      det.innerHTML = `
+        <summary>
+          <span class="row" style="gap:10px;">
+            <span class="dot" style="background:${c.color}"></span>
+            <span>${escapeHtml(c.name)}</span>
+            <span class="small">${escapeHtml(c.hotel||"")} · ${c.nights} noches</span>
+          </span>
+          <span class="small">click para colapsar</span>
+        </summary>
+      `;
+      const inner = document.createElement("div");
+      inner.className = "days";
+      inner.style.marginTop = "10px";
+      det.appendChild(inner);
+
+      c.days.forEach((d, idx) => inner.appendChild(dayDetails(c, d, idx === 0)));
+      list.appendChild(det);
+    }
+  }
+
+  function renderTickets() {
+    viewTickets.innerHTML = "";
+    const filter = selCityFilter.value;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Tickets</div>
+                      <div class="small">Marcá comprado. Links en cada evento.</div>`;
+    viewTickets.appendChild(card);
+
+    const wrap = document.createElement("div");
+    wrap.className = "days";
+    card.appendChild(wrap);
+
+    for (const c of trip.cities) {
+      if (filter !== "all" && c.id !== filter) continue;
+      for (const d of c.days) {
+        for (const e of d.events) {
+          if (!e.ticketRequired) continue;
+
+          const t = document.createElement("div");
+          t.className = "ticket";
+          t.innerHTML = `
+            <input type="checkbox" ${e.ticketBought ? "checked" : ""} />
+            <div style="flex:1;">
+              <div class="tname">${escapeHtml(e.title)}</div>
+              <div class="small">${escapeHtml(c.name)} · ${formatDateES(d.date)} · ${escapeHtml(e.startTime||"")}</div>
+              ${e.link ? `<div class="small"><a href="${escapeHtml(e.link)}" target="_blank">Link</a></div>` : ""}
+            </div>
+          `;
+          t.querySelector("input").addEventListener("change", (ev) => {
+            e.ticketBought = ev.target.checked;
+            saveTrip(trip);
+          });
+          wrap.appendChild(t);
+        }
+      }
+    }
+
+    if (!wrap.children.length) {
+      const empty = document.createElement("div");
+      empty.className = "small";
+      empty.textContent = "No hay tickets marcados como requeridos todavía.";
+      wrap.appendChild(empty);
+    }
+  }
+
+  // ---------- Drag & drop ----------
+  function wireDnD(container) {
+    Sortable.create(container, {
+      group: "events",
+      animation: 150,
+      onEnd: (evt) => {
+        const fromCityId = evt.from.dataset.cityId;
+        const fromDayId  = evt.from.dataset.dayId;
+        const toCityId   = evt.to.dataset.cityId;
+        const toDayId    = evt.to.dataset.dayId;
+        const eventId    = evt.item.dataset.eventId;
+
+        const fromCity = trip.cities.find(c => c.id === fromCityId);
+        const toCity   = trip.cities.find(c => c.id === toCityId);
+        const fromDay  = fromCity.days.find(d => d.id === fromDayId);
+        const toDay    = toCity.days.find(d => d.id === toDayId);
+
+        const moved = fromDay.events.find(e => e.id === eventId);
+        fromDay.events = fromDay.events.filter(e => e.id !== eventId);
+
+        const newIndex = evt.newIndex;
+        toDay.events.splice(newIndex, 0, moved);
+
+        saveTrip(trip);
+        renderEverything(false);
+      }
+    });
+  }
+
+  // ---------- Calendar ----------
+  let calendar;
+  function renderCalendar() {
+    const calEl = document.getElementById("calendar");
+    if (!calEl) return;
+
+    const filter = selCityFilter.value;
+    const events = [];
+
+    for (const c of trip.cities) {
+      if (filter !== "all" && c.id !== filter) continue;
+      for (const d of c.days) {
+        events.push({
+          id: "day_" + d.id,
+          title: c.name,
+          start: d.date,
+          allDay: true,
+          display: "background",
+          backgroundColor: c.color,
+          borderColor: c.color
+        });
+        for (const e of d.events) {
+          events.push({
+            id: e.id,
+            title: e.title,
+            start: d.date,
+            allDay: true,
+            color: "#1b2030"
+          });
+        }
+      }
+    }
+
+    if (calendar) calendar.destroy();
+    calendar = new FullCalendar.Calendar(calEl, {
+      initialView: "dayGridMonth",
+      height: "auto",
+      locale: "es",
+      events
+    });
+    calendar.render();
+  }
+
+  // ---------- PDF export ----------
+  btnExportPdf.addEventListener("click", () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:"pt", format:"a4" });
+
+    const margin = 40;
+    let y = margin;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(trip.name || "Viaje", margin, y);
+    y += 18;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const totalNights = trip.cities.reduce((s,c)=>s+c.nights,0);
+    const endExclusive = addDays(trip.startDate, totalNights);
+    doc.text(`${formatDateES(trip.startDate)} → ${formatDateES(addDays(endExclusive, -1))}`, margin, y);
+    y += 18;
+
+    // Itinerario tabla
+    const rows = [];
+    for (const c of trip.cities) {
+      for (const d of c.days) {
+        const evs = (d.events||[])
+          .map(e => {
+            const t = e.startTime ? `${e.startTime}${e.endTime ? "–"+e.endTime : ""}` : "";
+            const ticket = e.ticketRequired ? (e.ticketBought ? " (Ticket comprado)" : " (Ticket pendiente)") : "";
+            return `• ${t ? t+" " : ""}${e.title}${ticket}`;
+          })
+          .join("\n");
+        rows.push([
+          c.name,
+          d.date,
+          d.date ? formatDateES(d.date) : "",
+          c.hotel || "",
+          evs || ""
+        ]);
+      }
+    }
+
+    doc.autoTable({
+      startY: y,
+      head: [["Ciudad", "Fecha", "Día", "Hotel", "Eventos"]],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 4, overflow: "linebreak" },
+      headStyles: { fillColor: [27, 32, 48] },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 90 },
+        3: { cellWidth: 120 },
+        4: { cellWidth: 170 }
+      },
+      margin: { left: margin, right: margin }
+    });
+
+    // Tickets tabla
+    const tickets = [];
+    for (const c of trip.cities) {
+      for (const d of c.days) {
+        for (const e of d.events) {
+          if (!e.ticketRequired) continue;
+          tickets.push([
+            c.name,
+            formatDateES(d.date),
+            e.title,
+            e.ticketBought ? "Comprado" : "Pendiente",
+            e.link || ""
+          ]);
+        }
+      }
+    }
+
+    doc.addPage();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Tickets", margin, margin);
+
+    doc.autoTable({
+      startY: margin + 12,
+      head: [["Ciudad", "Fecha", "Lugar/Evento", "Estado", "Link"]],
+      body: tickets.length ? tickets : [["-", "-", "No hay tickets marcados", "-", "-"]],
+      styles: { fontSize: 8, cellPadding: 4, overflow: "linebreak" },
+      headStyles: { fillColor: [27, 32, 48] },
+      columnStyles: { 0:{cellWidth:80}, 1:{cellWidth:90}, 2:{cellWidth:180}, 3:{cellWidth:70}, 4:{cellWidth:120} },
+      margin: { left: margin, right: margin }
+    });
+
+    doc.save(`${(trip.name||"viaje").replace(/\s+/g,"_")}.pdf`);
+  });
+
+  // ---------- Render orchestrator ----------
+  function renderEverything(renderCal = true) {
+    renderTripMeta();
+    renderCities();
+    rebuildCityFilter();
+    renderAll();
+    renderCity();
+    renderTickets();
+    const active = document.querySelector(".tab.active")?.dataset.tab || "all";
+    if (active === "timeline" && renderCal) renderCalendar();
+  }
+
+  // ---------- Init ----------
+  rebuildCityFilter();
+  renderEverything();
+
+</script>
+</body>
+</html>
