@@ -1135,7 +1135,16 @@
   function loadTrip() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    try { return JSON.parse(raw); } catch { return null; }
+    try {
+      const trip = JSON.parse(raw);
+      // Migrar datos viejos: regenerar días con la nueva lógica de noches+1
+      if (trip && trip.cities && trip.startDate) {
+        const prevTrip = JSON.parse(JSON.stringify(trip)); // copia para preservar eventos
+        regenerateDaysPreserve(trip, prevTrip);
+        saveTrip(trip); // guardar versión migrada
+      }
+      return trip;
+    } catch { return null; }
   }
 
   function saveTrip(trip) {

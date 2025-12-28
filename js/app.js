@@ -412,6 +412,11 @@ export function init() {
   if (!trip) {
     trip = createDemoTrip();
     saveTrip(trip);
+  } else {
+    // Migrate existing data: regenerate days with nights+1 logic
+    const prevTrip = JSON.parse(JSON.stringify(trip));
+    regenerateDaysPreserve(trip, prevTrip);
+    saveTrip(trip);
   }
   setTrip(trip);
 
