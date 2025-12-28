@@ -161,20 +161,36 @@ export function createDemoTrip() {
 }
 
 // Regenerate days preserving events
+// El día de viaje (salida de ciudad A / llegada a ciudad B) aparece en AMBAS ciudades
 export function regenerateDaysPreserve(tripData, prevTrip) {
   const prevMap = new Map();
   for (const c of (prevTrip?.cities || [])) {
-    prevMap.set(c.id, c.days.map(d => d.events || []));
+    prevMap.set(c.id, (c.days || []).map(d => d.events || []));
   }
 
-  let runningDate = tripData.startDate;
-  for (const c of tripData.cities) {
-    const prevEvents = prevMap.get(c.id) || [];
-    c.days = [];
-    for (let i = 0; i < c.nights; i++) {
+  let cursor = tripData.startDate;
+  const totalCities = tripData.cities.length;
+
+  for (let cityIdx = 0; cityIdx < totalCities; cityIdx++) {
+    const city = tripData.cities[cityIdx];
+    const isLastCity = cityIdx === totalCities - 1;
+    const prevEvents = prevMap.get(city.id) || [];
+
+    // Para ciudades que no son la última, agregamos +1 día (día de viaje/partida)
+    // que coincide con el día de llegada de la siguiente ciudad
+    const numDays = isLastCity ? city.nights : city.nights + 1;
+
+    city.days = [];
+    for (let i = 0; i < numDays; i++) {
+      const date = addDays(cursor, i);
       const evs = prevEvents[i] ? [...prevEvents[i]] : [];
-      c.days.push({ id: uid(), date: runningDate, events: evs });
-      runningDate = addDays(runningDate, 1);
+      const label = i === 0 ? "Llegada" :
+                    (i === numDays - 1 && !isLastCity) ? "Partida" :
+                    "Día " + (i + 1);
+      city.days.push({ id: uid(), date, label, events: evs });
     }
+
+    // El cursor avanza solo por las noches (el día de partida es compartido con la llegada siguiente)
+    cursor = addDays(cursor, city.nights);
   }
 }
