@@ -777,6 +777,24 @@
       border-color: var(--accent);
     }
 
+    /* Save confirmation animation */
+    .event.just-saved {
+      animation: saveFlash 0.5s ease-out;
+      border-color: var(--success);
+      box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+    }
+
+    @keyframes saveFlash {
+      0% {
+        background: rgba(52, 211, 153, 0.3);
+        transform: scale(1.01);
+      }
+      100% {
+        background: var(--bg);
+        transform: scale(1);
+      }
+    }
+
     /* Timeline drag support */
     .timeline-events.sortable-group .timeline-event {
       cursor: grab;
@@ -1738,9 +1756,8 @@
     // Event: Save changes
     el.querySelector('[data-act="save"]').addEventListener("click", (evt) => {
       evt.stopPropagation();
-      console.log("Save clicked for event:", e.id, e.title);
+
       const newTitle = el.querySelector('[data-field="title"]').value.trim();
-      console.log("New title value:", newTitle);
       e.title = newTitle || e.title;
       e.type = el.querySelector('[data-field="type"]').value;
       e.link = el.querySelector('[data-field="link"]').value.trim();
@@ -1751,11 +1768,15 @@
 
       if (!e.ticketRequired) e.ticketBought = false;
 
-      console.log("Saving event:", JSON.stringify(e));
+      // Close the edit form
+      el.classList.remove('editing');
+
+      // Show save confirmation
+      el.classList.add('just-saved');
+      setTimeout(() => el.classList.remove('just-saved'), 1500);
+
       saveTrip(trip);
-      console.log("Trip saved, rendering...");
       renderEverything(false);
-      console.log("Render complete");
     });
 
     // Event: ticketRequired checkbox controls ticketBought
