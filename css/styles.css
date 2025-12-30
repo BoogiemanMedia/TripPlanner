@@ -1,18 +1,18 @@
 :root {
-  --bg: #0a0b0e;
-  --panel: #121318;
-  --panel-hover: #181a22;
-  --muted: #8b95a5;
-  --text: #f0f4f8;
-  --text-secondary: #c5ced8;
-  --line: #2a2f3d;
-  --line-light: #353b4d;
-  --chip: #1e2230;
-  --accent: #5b8def;
-  --accent-soft: rgba(91, 141, 239, 0.15);
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
+  --bg: #f5f7fa;
+  --panel: #ffffff;
+  --panel-hover: #f0f2f5;
+  --muted: #6b7280;
+  --text: #1f2937;
+  --text-secondary: #4b5563;
+  --line: #e5e7eb;
+  --line-light: #d1d5db;
+  --chip: #f3f4f6;
+  --accent: #3b82f6;
+  --accent-soft: rgba(59, 130, 246, 0.1);
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
 }
 
 * { box-sizing: border-box; }
@@ -69,9 +69,10 @@ main {
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-.card:hover { border-color: var(--line-light); }
+.card:hover { border-color: var(--line-light); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
@@ -106,15 +107,17 @@ button {
 }
 button:hover { background: var(--panel-hover); }
 button.primary {
-  background: linear-gradient(135deg, #1e3a6e 0%, #2a4a8e 100%);
-  border-color: #3a5a9e;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
 }
-button.primary:hover { background: linear-gradient(135deg, #2a4a8e 0%, #3a5a9e 100%); }
+button.primary:hover { background: #2563eb; }
 button.danger {
-  background: #3d1f1f;
-  border-color: #5c2d2d;
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: var(--danger);
 }
-button.danger:hover { background: #4d2828; }
+button.danger:hover { background: #fee2e2; }
 
 .small {
   font-size: 12px;
@@ -175,14 +178,15 @@ button.danger:hover { background: #4d2828; }
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--panel);
   display: flex;
   justify-content: space-between;
   gap: 10px;
   align-items: center;
   transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-.city-item:hover { border-color: var(--line-light); background: var(--panel-hover); }
+.city-item:hover { border-color: var(--line-light); background: var(--panel-hover); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .city-item .handle { cursor: grab; color: var(--muted); font-size: 14px; }
 .city-item .name { font-weight: 700; }
 
@@ -191,12 +195,13 @@ button.danger:hover { background: #4d2828; }
 details {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--panel);
   padding: 12px;
   transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-details:hover { border-color: var(--line-light); }
-details[open] { background: var(--panel); }
+details:hover { border-color: var(--line-light); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+details[open] { background: var(--panel); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 
 summary {
   cursor: pointer;
@@ -229,12 +234,13 @@ details[open] summary::before { transform: rotate(90deg); }
 .event {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--panel);
   padding: 12px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .event:hover {
   border-color: var(--line-light);
@@ -302,10 +308,11 @@ a:hover { opacity: 0.8; }
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--bg);
+  background: var(--panel);
   transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-.ticket:hover { border-color: var(--line-light); }
+.ticket:hover { border-color: var(--line-light); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .ticket .tname { font-weight: 700; }
 .ticket input[type="checkbox"] {
   width: 18px;
@@ -797,11 +804,11 @@ a:hover { opacity: 0.8; }
 
 @keyframes saveFlash {
   0% {
-    background: rgba(52, 211, 153, 0.3);
+    background: rgba(16, 185, 129, 0.2);
     transform: scale(1.01);
   }
   100% {
-    background: var(--bg);
+    background: var(--panel);
     transform: scale(1);
   }
 }
