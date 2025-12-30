@@ -992,12 +992,87 @@
       color: var(--muted);
       padding: 4px 0;
     }
+
+    /* ==================== THEME TOGGLE ==================== */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .theme-toggle-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .theme-switch {
+      position: relative;
+      width: 52px;
+      height: 28px;
+      background: var(--chip);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 1px solid var(--line);
+    }
+
+    .theme-switch::before {
+      content: '☀️';
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      background: var(--panel);
+      border-radius: 50%;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .theme-switch.dark::before {
+      content: '🌙';
+      left: calc(100% - 24px);
+    }
+
+    .theme-switch.dark {
+      background: #374151;
+      border-color: #4b5563;
+    }
+
+    /* Dark theme variables */
+    body.dark-theme {
+      --bg: #0f1117;
+      --panel: #1a1d24;
+      --panel-hover: #22262f;
+      --muted: #9ca3af;
+      --text: #f3f4f6;
+      --text-secondary: #d1d5db;
+      --line: #2d3340;
+      --line-light: #3d4451;
+      --chip: #252a33;
+      --accent: #60a5fa;
+      --accent-soft: rgba(96, 165, 250, 0.15);
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+    }
   </style>
 </head>
 <body>
 <header>
   <h1>Trip Planner Local</h1>
   <div class="small">Todo local, drag & drop, timeline, export JSON + PDF</div>
+  <div class="theme-toggle">
+    <span class="theme-toggle-label">Tema</span>
+    <div class="theme-switch" id="themeSwitch" title="Cambiar tema"></div>
+  </div>
 </header>
 
 <div class="wrap">
@@ -1083,6 +1158,30 @@
 
 <script>
   const STORAGE_KEY = "trip_planner_local_v2";
+  const THEME_KEY = "trip_planner_theme";
+
+  // ---------- Theme Toggle ----------
+  function initTheme() {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    const themeSwitch = document.getElementById('themeSwitch');
+
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-theme');
+      themeSwitch.classList.add('dark');
+    }
+
+    themeSwitch.addEventListener('click', toggleTheme);
+  }
+
+  function toggleTheme() {
+    const themeSwitch = document.getElementById('themeSwitch');
+    const isDark = document.body.classList.toggle('dark-theme');
+    themeSwitch.classList.toggle('dark', isDark);
+    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+  }
+
+  // Initialize theme on page load
+  document.addEventListener('DOMContentLoaded', initTheme);
 
   function uid() {
     return Math.random().toString(16).slice(2) + Date.now().toString(16);
