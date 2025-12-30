@@ -399,7 +399,12 @@
     .timeline-day {
       position: relative;
       padding-left: 60px;
-      margin-bottom: 24px;
+      margin-bottom: 8px;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      padding-right: 16px;
+      border-radius: 12px;
+      /* El color de fondo se aplica inline con el color de la ciudad */
     }
 
     .timeline-day:last-child { margin-bottom: 0; }
@@ -407,18 +412,20 @@
     .timeline-day-marker {
       position: absolute;
       left: 12px;
-      top: 0;
-      width: 28px;
-      height: 28px;
+      top: 12px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: var(--panel);
-      border: 3px solid var(--accent);
+      background: white;
+      border: 3px solid currentColor;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 800;
+      color: #1a1a2e;
       z-index: 1;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
 
     .timeline-day-header {
@@ -426,37 +433,42 @@
       align-items: center;
       gap: 12px;
       margin-bottom: 12px;
-      padding: 10px 14px;
-      background: var(--panel);
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.1);
       border-radius: 10px;
-      border: 1px solid var(--line);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(4px);
     }
 
     .timeline-day-header .date {
       font-weight: 700;
       font-size: 15px;
+      color: white;
     }
 
     .timeline-day-header .city-tag {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
-      background: var(--chip);
+      padding: 4px 12px;
+      background: rgba(255,255,255,0.2);
       border-radius: 6px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
+      color: white;
     }
 
     .timeline-day-header .city-tag .dot {
       width: 8px;
       height: 8px;
+      background: white !important;
+      box-shadow: 0 0 6px white !important;
     }
 
     .timeline-day-header .hotel {
       margin-left: auto;
       font-size: 12px;
-      color: var(--muted);
+      color: rgba(255,255,255,0.8);
     }
 
     .timeline-events {
@@ -470,16 +482,18 @@
       align-items: flex-start;
       gap: 12px;
       padding: 12px 16px;
-      background: var(--bg);
-      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.95);
+      border: none;
+      color: #1a1a2e;
       border-radius: 10px;
       transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .timeline-event:hover {
-      border-color: var(--line-light);
-      background: var(--panel-hover);
+      background: white;
       transform: translateX(4px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
     .timeline-event .icon {
@@ -489,7 +503,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--chip);
+      background: #f0f0f5;
       border-radius: 8px;
       flex-shrink: 0;
     }
@@ -503,6 +517,7 @@
       font-weight: 700;
       font-size: 14px;
       margin-bottom: 4px;
+      color: #1a1a2e;
     }
 
     .timeline-event .event-meta {
@@ -510,18 +525,19 @@
       flex-wrap: wrap;
       gap: 10px;
       font-size: 12px;
-      color: var(--muted);
+      color: #666;
     }
 
     .timeline-event .event-time {
-      color: var(--text-secondary);
+      color: #444;
       font-weight: 600;
     }
 
     .timeline-event .event-type {
-      background: var(--chip);
+      background: #e8e8f0;
       padding: 2px 8px;
       border-radius: 4px;
+      color: #555;
     }
 
     .timeline-event .ticket-badge {
@@ -532,24 +548,35 @@
     }
 
     .timeline-event .ticket-badge.pending {
-      background: rgba(251, 191, 36, 0.15);
-      color: var(--warning);
+      background: rgba(234, 179, 8, 0.2);
+      color: #b45309;
     }
 
     .timeline-event .ticket-badge.bought {
-      background: rgba(52, 211, 153, 0.15);
-      color: var(--success);
+      background: rgba(34, 197, 94, 0.2);
+      color: #15803d;
     }
 
     .timeline-event .event-link {
       margin-left: auto;
+      color: #3b82f6;
+    }
+
+    .timeline-event .event-handle {
+      color: #999;
+    }
+
+    .timeline-event.timeline-event-empty {
+      background: rgba(255,255,255,0.5);
+      border: 1px dashed rgba(0,0,0,0.15);
+      box-shadow: none;
     }
 
     /* City transition in timeline */
     .timeline-city-change {
       position: relative;
       padding-left: 60px;
-      margin: 32px 0;
+      margin: 16px 0;
     }
 
     .timeline-city-change-marker {
@@ -566,21 +593,22 @@
       font-size: 18px;
       z-index: 1;
       border: 3px solid;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
     .timeline-city-change-content {
       display: flex;
       align-items: center;
       gap: 16px;
-      padding: 16px 20px;
-      background: var(--panel);
+      padding: 14px 20px;
+      background: linear-gradient(135deg, var(--panel) 0%, var(--bg) 100%);
       border-radius: 12px;
-      border: 2px dashed var(--line);
+      border: 2px dashed var(--line-light);
     }
 
     .timeline-city-change-content .arrow {
-      font-size: 20px;
-      color: var(--muted);
+      font-size: 24px;
+      color: var(--accent);
     }
 
     .timeline-city-change-content .city-name {
@@ -589,6 +617,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      color: var(--text);
     }
 
     /* Empty state */
@@ -823,26 +852,27 @@
 
     /* Day type badges */
     .day-type-badge {
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .day-type-badge.arrival {
-      background: rgba(91, 141, 239, 0.15);
-      color: var(--accent);
+      background: rgba(255,255,255,0.25);
+      color: #fff;
     }
 
     .day-type-badge.departure {
-      background: rgba(167, 139, 250, 0.15);
-      color: #a78bfa;
+      background: rgba(255,255,255,0.25);
+      color: #fff;
     }
 
     .day-type-badge.full {
-      background: rgba(52, 211, 153, 0.15);
-      color: var(--success);
+      background: rgba(255,255,255,0.25);
+      color: #fff;
     }
 
     /* City config: day types */
@@ -2150,14 +2180,14 @@
         }
         lastCityId = city.id;
 
-        // Día
+        // Día - apply city color as background
         html += `
-          <div class="timeline-day">
-            <div class="timeline-day-marker" style="border-color: ${city.color}">${dayNum}</div>
+          <div class="timeline-day" style="background: ${city.color}; color: #fff;">
+            <div class="timeline-day-marker" style="color: ${city.color};">${dayNum}</div>
             <div class="timeline-day-header">
               <span class="date">${formatDateES(day.date)}</span>
               <span class="city-tag">
-                <span class="dot" style="background: ${city.color}; box-shadow: 0 0 6px ${city.color}"></span>
+                <span class="dot"></span>
                 ${escapeHtml(city.name)}
               </span>
               ${getDayTypeBadge(dayType)}
@@ -2168,10 +2198,10 @@
 
         if (!day.events || day.events.length === 0) {
           html += `
-            <div class="timeline-event timeline-event-empty" style="opacity: 0.6;">
+            <div class="timeline-event timeline-event-empty">
               <div class="icon">📝</div>
               <div class="content">
-                <div class="event-title" style="color: var(--muted)">Sin eventos planificados</div>
+                <div class="event-title" style="color: #666">Sin eventos planificados</div>
                 <div class="event-meta">${dayType === 'arrival' ? 'Día de llegada - tarde libre' : dayType === 'departure' ? 'Día de partida - mañana libre' : 'Día libre o por planificar'}</div>
               </div>
             </div>
