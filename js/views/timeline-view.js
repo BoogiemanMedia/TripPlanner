@@ -140,14 +140,14 @@ export function renderTimelineView(container) {
       }
       lastCityId = city.id;
 
-      // Day
+      // Day - apply city color as background
       html += `
-        <div class="timeline-day">
-          <div class="timeline-day-marker" style="border-color: ${city.color}">${dayNum}</div>
+        <div class="timeline-day" style="background: ${city.color}; color: #fff;">
+          <div class="timeline-day-marker" style="color: ${city.color};">${dayNum}</div>
           <div class="timeline-day-header">
             <span class="date">${formatDateES(day.date)}</span>
             <span class="city-tag">
-              <span class="dot" style="background: ${city.color}; box-shadow: 0 0 6px ${city.color}"></span>
+              <span class="dot"></span>
               ${escapeHtml(city.name)}
             </span>
             ${getDayTypeBadge(dayType)}
@@ -158,10 +158,10 @@ export function renderTimelineView(container) {
 
       if (!day.events || day.events.length === 0) {
         html += `
-          <div class="timeline-event timeline-event-empty" style="opacity: 0.6;">
+          <div class="timeline-event timeline-event-empty">
             <div class="icon">📝</div>
             <div class="content">
-              <div class="event-title" style="color: var(--muted)">Sin eventos planificados</div>
+              <div class="event-title" style="color: #666">Sin eventos planificados</div>
               <div class="event-meta">${dayType === 'arrival' ? 'Día de llegada - tarde libre' : dayType === 'departure' ? 'Día de partida - mañana libre' : 'Día libre o por planificar'}</div>
             </div>
           </div>

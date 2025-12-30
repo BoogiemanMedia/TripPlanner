@@ -380,26 +380,39 @@ a:hover { opacity: 0.8; }
 .timeline-day {
   position: relative;
   padding-left: 60px;
-  margin-bottom: 24px;
+  padding-right: 16px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-radius: 16px;
+  background: var(--panel);
+  transition: all 0.2s;
 }
 
 .timeline-day:last-child { margin-bottom: 0; }
 
+/* City-colored background support */
+.timeline-day[style*="background"] {
+  background-blend-mode: normal;
+}
+
 .timeline-day-marker {
   position: absolute;
   left: 12px;
-  top: 0;
-  width: 28px;
-  height: 28px;
+  top: 16px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--panel);
-  border: 3px solid var(--accent);
+  background: rgba(255,255,255,0.95);
+  border: 3px solid currentColor;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   z-index: 1;
+  color: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .timeline-day-header {
@@ -407,15 +420,18 @@ a:hover { opacity: 0.8; }
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
-  padding: 10px 14px;
-  background: var(--panel);
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255,255,255,0.15);
 }
 
 .timeline-day-header .date {
   font-weight: 700;
   font-size: 15px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .timeline-day-header .city-tag {
@@ -423,21 +439,24 @@ a:hover { opacity: 0.8; }
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: var(--chip);
+  background: rgba(255,255,255,0.2);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
+  color: #fff;
 }
 
 .timeline-day-header .city-tag .dot {
   width: 8px;
   height: 8px;
+  background: #fff !important;
+  box-shadow: 0 0 6px rgba(255,255,255,0.6) !important;
 }
 
 .timeline-day-header .hotel {
   margin-left: auto;
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255,255,255,0.8);
 }
 
 .timeline-events {
@@ -451,16 +470,18 @@ a:hover { opacity: 0.8; }
   align-items: flex-start;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.95);
+  border: none;
   border-radius: 10px;
   transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  color: #1a1a2e;
 }
 
 .timeline-event:hover {
-  border-color: var(--line-light);
-  background: var(--panel-hover);
+  background: #fff;
   transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .timeline-event .icon {
@@ -470,7 +491,7 @@ a:hover { opacity: 0.8; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--chip);
+  background: rgba(0,0,0,0.06);
   border-radius: 8px;
   flex-shrink: 0;
 }
@@ -484,6 +505,7 @@ a:hover { opacity: 0.8; }
   font-weight: 700;
   font-size: 14px;
   margin-bottom: 4px;
+  color: #1a1a2e;
 }
 
 .timeline-event .event-meta {
@@ -491,18 +513,19 @@ a:hover { opacity: 0.8; }
   flex-wrap: wrap;
   gap: 10px;
   font-size: 12px;
-  color: var(--muted);
+  color: #666;
 }
 
 .timeline-event .event-time {
-  color: var(--text-secondary);
+  color: #444;
   font-weight: 600;
 }
 
 .timeline-event .event-type {
-  background: var(--chip);
+  background: rgba(0,0,0,0.08);
   padding: 2px 8px;
   border-radius: 4px;
+  color: #555;
 }
 
 .timeline-event .ticket-badge {
@@ -513,24 +536,29 @@ a:hover { opacity: 0.8; }
 }
 
 .timeline-event .ticket-badge.pending {
-  background: rgba(251, 191, 36, 0.15);
-  color: var(--warning);
+  background: rgba(234, 179, 8, 0.2);
+  color: #b45309;
 }
 
 .timeline-event .ticket-badge.bought {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--success);
+  background: rgba(34, 197, 94, 0.2);
+  color: #15803d;
 }
 
 .timeline-event .event-link {
   margin-left: auto;
+  color: #3b82f6;
+}
+
+.timeline-event .event-handle {
+  color: #999;
 }
 
 /* City transition in timeline */
 .timeline-city-change {
   position: relative;
   padding-left: 60px;
-  margin: 32px 0;
+  margin: 16px 0;
 }
 
 .timeline-city-change-marker {
@@ -547,21 +575,22 @@ a:hover { opacity: 0.8; }
   font-size: 18px;
   z-index: 1;
   border: 3px solid;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .timeline-city-change-content {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 20px;
-  background: var(--panel);
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--panel) 0%, var(--bg) 100%);
   border-radius: 12px;
-  border: 2px dashed var(--line);
+  border: 2px dashed var(--line-light);
 }
 
 .timeline-city-change-content .arrow {
-  font-size: 20px;
-  color: var(--muted);
+  font-size: 24px;
+  color: var(--accent);
 }
 
 .timeline-city-change-content .city-name {
@@ -570,6 +599,7 @@ a:hover { opacity: 0.8; }
   display: flex;
   align-items: center;
   gap: 8px;
+  color: var(--text);
 }
 
 /* Empty state */
@@ -783,12 +813,18 @@ a:hover { opacity: 0.8; }
 
 .timeline-event.sortable-ghost {
   opacity: 0.4;
-  background: var(--accent-soft);
+  background: rgba(255,255,255,0.5);
 }
 
 .timeline-event.sortable-chosen {
-  background: var(--panel-hover);
-  border-color: var(--accent);
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+.timeline-event.timeline-event-empty {
+  background: rgba(255,255,255,0.5);
+  border: 1px dashed rgba(0,0,0,0.15);
+  box-shadow: none;
 }
 
 .timeline-event .event-handle {
@@ -804,26 +840,27 @@ a:hover { opacity: 0.8; }
 
 /* Day type badges */
 .day-type-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .day-type-badge.arrival {
-  background: rgba(91, 141, 239, 0.15);
-  color: var(--accent);
+  background: rgba(255,255,255,0.25);
+  color: #fff;
 }
 
 .day-type-badge.departure {
-  background: rgba(167, 139, 250, 0.15);
-  color: #a78bfa;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
 }
 
 .day-type-badge.full {
-  background: rgba(52, 211, 153, 0.15);
-  color: var(--success);
+  background: rgba(255,255,255,0.25);
+  color: #fff;
 }
 
 /* City config: day types */
