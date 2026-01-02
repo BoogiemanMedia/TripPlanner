@@ -2261,7 +2261,7 @@
           toDay.events.splice(evt.newIndex, 0, moved);
 
           saveTrip(trip);
-          render(); // Re-render all views to keep in sync
+          renderEverything(); // Re-render all views to keep in sync
         }
       });
     });
@@ -2502,7 +2502,7 @@
 
         day.events = day.events.filter(ev => ev.id !== eventId);
         saveTrip(trip);
-        render();
+        renderEverything();
       });
     });
 
@@ -2642,7 +2642,7 @@
 
       saveTrip(trip);
       modal.remove();
-      render();
+      renderEverything();
     });
   }
 
