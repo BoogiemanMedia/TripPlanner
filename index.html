@@ -857,6 +857,118 @@
       opacity: 1;
     }
 
+    /* Timeline event actions */
+    .timeline-event-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .timeline-event:hover .timeline-event-actions {
+      opacity: 1;
+    }
+
+    .timeline-event-actions .btn-icon {
+      padding: 4px 6px;
+      font-size: 12px;
+      background: rgba(0,0,0,0.05);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .timeline-event-actions .btn-icon:hover {
+      background: rgba(0,0,0,0.1);
+    }
+
+    .timeline-event-actions .timeline-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    /* Event notes */
+    .event-notes {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      padding: 6px 8px;
+      background: rgba(0,0,0,0.04);
+      border-radius: 4px;
+      border-left: 2px solid rgba(0,0,0,0.1);
+    }
+
+    .event-notes-inline {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: var(--chip);
+      border-radius: 4px;
+      border-left: 2px solid var(--line);
+    }
+
+    /* Add event button in timeline */
+    .timeline-add-event-btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      background: rgba(255,255,255,0.6);
+      border: 1px dashed rgba(0,0,0,0.2);
+      border-radius: 8px;
+      color: #666;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .timeline-add-event-btn:hover {
+      background: rgba(255,255,255,0.9);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Timeline edit modal */
+    .timeline-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+
+    .timeline-modal {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      border: 1px solid var(--line);
+    }
+
+    .timeline-modal h3 {
+      margin: 0 0 20px 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .timeline-modal textarea {
+      width: 100%;
+      resize: vertical;
+      min-height: 60px;
+    }
+
     /* Day type badges */
     .day-type-badge {
       padding: 3px 10px;
@@ -1815,6 +1927,7 @@
           <span class="event-handle" title="Arrastrar">☰</span>
           <div>
             <div class="title"><span class="icon">${icon}</span> ${escapeHtml(e.title)}</div>
+            ${e.notes ? `<div class="event-notes-inline">${escapeHtml(e.notes)}</div>` : ''}
             <div class="meta">
               <span class="type-badge">${escapeHtml(e.type || "evento")}</span>
               ${timePart ? `<span class="time">🕐 ${timePart}</span>` : ""}
@@ -1858,6 +1971,10 @@
           <div class="edit-field">
             <label>Hora fin</label>
             <input type="text" data-field="endTime" value="${escapeHtml(e.endTime || '')}" placeholder="14:00 (opcional)" />
+          </div>
+          <div class="edit-field full-width">
+            <label>Notas</label>
+            <textarea data-field="notes" rows="2" placeholder="Detalles adicionales...">${escapeHtml(e.notes || '')}</textarea>
           </div>
           <div class="edit-field">
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -1909,6 +2026,7 @@
       el.querySelector('[data-field="link"]').value = e.link || '';
       el.querySelector('[data-field="startTime"]').value = e.startTime || '';
       el.querySelector('[data-field="endTime"]').value = e.endTime || '';
+      el.querySelector('[data-field="notes"]').value = e.notes || '';
       el.querySelector('[data-field="ticketRequired"]').checked = e.ticketRequired;
       el.querySelector('[data-field="ticketBought"]').checked = e.ticketBought;
     });
@@ -1923,6 +2041,7 @@
       e.link = el.querySelector('[data-field="link"]').value.trim();
       e.startTime = el.querySelector('[data-field="startTime"]').value.trim();
       e.endTime = el.querySelector('[data-field="endTime"]').value.trim();
+      e.notes = el.querySelector('[data-field="notes"]').value.trim();
       e.ticketRequired = el.querySelector('[data-field="ticketRequired"]').checked;
       e.ticketBought = el.querySelector('[data-field="ticketBought"]').checked;
 
@@ -2142,7 +2261,7 @@
           toDay.events.splice(evt.newIndex, 0, moved);
 
           saveTrip(trip);
-          renderTimeline();
+          render(); // Re-render all views to keep in sync
         }
       });
     });
@@ -2325,24 +2444,31 @@
             }
 
             html += `
-              <div class="timeline-event" data-event-id="${e.id}">
+              <div class="timeline-event" data-event-id="${e.id}" data-day-id="${day.id}" data-city-id="${city.id}">
                 <span class="event-handle" title="Arrastrar">☰</span>
                 <div class="icon">${icon}</div>
                 <div class="content">
                   <div class="event-title">${escapeHtml(e.title)}</div>
+                  ${e.notes ? `<div class="event-notes">${escapeHtml(e.notes)}</div>` : ''}
                   <div class="event-meta">
                     ${timePart ? `<span class="event-time">🕐 ${timePart}</span>` : ''}
                     <span class="event-type">${escapeHtml(e.type || 'evento')}</span>
                     ${ticketBadge}
                   </div>
                 </div>
-                ${e.link ? `<a href="${escapeHtml(e.link)}" target="_blank" class="event-link" title="Abrir link">🔗</a>` : ''}
+                <div class="timeline-event-actions">
+                  ${e.link ? `<a href="${escapeHtml(e.link)}" target="_blank" class="event-link" title="Abrir link">🔗</a>` : ''}
+                  <button class="btn-icon timeline-edit-btn" data-event-id="${e.id}" data-day-id="${day.id}" data-city-id="${city.id}" title="Editar">✏️</button>
+                  <button class="btn-icon timeline-delete-btn" data-event-id="${e.id}" data-day-id="${day.id}" data-city-id="${city.id}" title="Eliminar">🗑️</button>
+                </div>
               </div>
             `;
           }
         }
 
+        // Add event button for this day
         html += `
+            <button class="timeline-add-event-btn" data-day-id="${day.id}" data-city-id="${city.id}">+ Agregar evento</button>
             </div>
           </div>
         `;
@@ -2358,6 +2484,166 @@
 
     // Wire drag & drop after rendering
     wireTimelineDnD();
+
+    // Wire delete buttons
+    container.querySelectorAll('.timeline-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const eventId = btn.dataset.eventId;
+        const dayId = btn.dataset.dayId;
+        const cityId = btn.dataset.cityId;
+
+        if (!confirm('¿Eliminar este evento?')) return;
+
+        const city = trip.cities.find(c => c.id === cityId);
+        if (!city) return;
+        const day = city.days.find(d => d.id === dayId);
+        if (!day) return;
+
+        day.events = day.events.filter(ev => ev.id !== eventId);
+        saveTrip(trip);
+        render();
+      });
+    });
+
+    // Wire edit buttons
+    container.querySelectorAll('.timeline-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const eventId = btn.dataset.eventId;
+        const dayId = btn.dataset.dayId;
+        const cityId = btn.dataset.cityId;
+
+        openTimelineEditModal(cityId, dayId, eventId);
+      });
+    });
+
+    // Wire add event buttons
+    container.querySelectorAll('.timeline-add-event-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dayId = btn.dataset.dayId;
+        const cityId = btn.dataset.cityId;
+        openTimelineEditModal(cityId, dayId, null); // null = new event
+      });
+    });
+  }
+
+  // Timeline edit modal
+  function openTimelineEditModal(cityId, dayId, eventId) {
+    const city = trip.cities.find(c => c.id === cityId);
+    if (!city) return;
+    const day = city.days.find(d => d.id === dayId);
+    if (!day) return;
+
+    const event = eventId ? day.events.find(e => e.id === eventId) : null;
+    const isNew = !event;
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'timeline-modal-overlay';
+    modal.innerHTML = `
+      <div class="timeline-modal">
+        <h3>${isNew ? 'Nuevo Evento' : 'Editar Evento'}</h3>
+        <div class="edit-grid">
+          <div class="edit-field full-width">
+            <label>Título</label>
+            <input type="text" id="modalEventTitle" value="${escapeHtml(event?.title || '')}" placeholder="Nombre del evento">
+          </div>
+          <div class="edit-field">
+            <label>Tipo</label>
+            <select id="modalEventType">
+              <option value="museo" ${event?.type === 'museo' ? 'selected' : ''}>🏛️ Museo</option>
+              <option value="restaurant" ${event?.type === 'restaurant' ? 'selected' : ''}>🍽️ Restaurant</option>
+              <option value="tour" ${event?.type === 'tour' ? 'selected' : ''}>🚶 Tour</option>
+              <option value="transporte" ${event?.type === 'transporte' ? 'selected' : ''}>🚌 Transporte</option>
+              <option value="vuelo" ${event?.type === 'vuelo' ? 'selected' : ''}>✈️ Vuelo</option>
+              <option value="show" ${event?.type === 'show' ? 'selected' : ''}>🎭 Show</option>
+              <option value="compras" ${event?.type === 'compras' ? 'selected' : ''}>🛍️ Compras</option>
+              <option value="naturaleza" ${event?.type === 'naturaleza' ? 'selected' : ''}>🌳 Naturaleza</option>
+              <option value="playa" ${event?.type === 'playa' ? 'selected' : ''}>🏖️ Playa</option>
+              <option value="evento" ${(!event?.type || event?.type === 'evento') ? 'selected' : ''}>📌 Evento</option>
+            </select>
+          </div>
+          <div class="edit-field">
+            <label>Hora inicio</label>
+            <input type="time" id="modalEventStart" value="${event?.startTime || ''}">
+          </div>
+          <div class="edit-field">
+            <label>Hora fin</label>
+            <input type="time" id="modalEventEnd" value="${event?.endTime || ''}">
+          </div>
+          <div class="edit-field">
+            <label>Link</label>
+            <input type="url" id="modalEventLink" value="${escapeHtml(event?.link || '')}" placeholder="https://...">
+          </div>
+          <div class="edit-field full-width">
+            <label>Notas</label>
+            <textarea id="modalEventNotes" rows="2" placeholder="Detalles adicionales...">${escapeHtml(event?.notes || '')}</textarea>
+          </div>
+          <div class="edit-field">
+            <label class="ticket-checkbox ${event?.ticketRequired ? (event?.ticketBought ? 'bought' : 'pending') : ''}">
+              <input type="checkbox" id="modalEventTicket" ${event?.ticketRequired ? 'checked' : ''}>
+              <span>Requiere ticket</span>
+            </label>
+          </div>
+          <div class="edit-field">
+            <label class="ticket-checkbox ${event?.ticketBought ? 'bought' : ''}">
+              <input type="checkbox" id="modalEventBought" ${event?.ticketBought ? 'checked' : ''}>
+              <span>Ticket comprado</span>
+            </label>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="primary" id="modalSaveBtn">💾 Guardar</button>
+          <button id="modalCancelBtn">Cancelar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Focus title
+    document.getElementById('modalEventTitle').focus();
+
+    // Wire modal buttons
+    document.getElementById('modalCancelBtn').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    document.getElementById('modalSaveBtn').addEventListener('click', () => {
+      const title = document.getElementById('modalEventTitle').value.trim();
+      if (!title) {
+        alert('El título es requerido');
+        return;
+      }
+
+      const eventData = {
+        id: event?.id || uid(),
+        title: title,
+        type: document.getElementById('modalEventType').value,
+        startTime: document.getElementById('modalEventStart').value,
+        endTime: document.getElementById('modalEventEnd').value,
+        link: document.getElementById('modalEventLink').value,
+        notes: document.getElementById('modalEventNotes').value,
+        ticketRequired: document.getElementById('modalEventTicket').checked,
+        ticketBought: document.getElementById('modalEventBought').checked
+      };
+
+      if (isNew) {
+        day.events.push(eventData);
+      } else {
+        const idx = day.events.findIndex(e => e.id === eventId);
+        if (idx >= 0) day.events[idx] = eventData;
+      }
+
+      saveTrip(trip);
+      modal.remove();
+      render();
+    });
   }
 
   // ---------- PDF export ----------
