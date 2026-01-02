@@ -1238,13 +1238,15 @@
 
       <div class="row" style="margin-top:8px;">
         <button class="primary" id="btnSaveTrip">Guardar</button>
+        <button id="btnSaveFile" title="Guardar archivo para subir al servidor">💾 Guardar Archivo</button>
         <button id="btnExport">Export JSON</button>
         <button class="primary" id="btnExportPdf">Export PDF</button>
         <label for="inpImport" class="tab" style="cursor:pointer;">Import JSON</label>
         <input id="inpImport" type="file" accept="application/json" style="display:none;" />
       </div>
+      <div class="small" id="dataFileStatus" style="margin-top:6px;"></div>
       <div class="small">
-        Si cambiás fecha inicio o noches, el sistema intenta preservar eventos por orden de días.
+        💡 Usá "Guardar Archivo" para descargar <strong>trip-data.json</strong> y subirlo junto con index.html al servidor.
       </div>
     </div>
 
@@ -1402,6 +1404,38 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
   }
 
+  // Try to load from trip-data.json file (for server deployment)
+  async function loadTripFromFile() {
+    try {
+      const response = await fetch('trip-data.json?t=' + Date.now()); // cache bust
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  // Save trip data to downloadable file
+  function saveTripToFile() {
+    const dataStr = JSON.stringify(trip, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'trip-data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Show confirmation
+    const status = document.getElementById('dataFileStatus');
+    status.innerHTML = '✅ Archivo descargado! Subilo al servidor junto con index.html';
+    status.style.color = 'var(--success)';
+    setTimeout(() => { status.innerHTML = ''; }, 5000);
+  }
+
   // Preservar eventos al cambiar startDate / nights / orden ciudades
   // El día de viaje (salida de ciudad A / llegada a ciudad B) aparece en AMBAS ciudades
   function regenerateDaysPreserve(trip, prevTrip) {
@@ -1515,10 +1549,33 @@
   }
 
   // ---------- State ----------
-  let trip = loadTrip() || defaultTrip();
-  // Si el usuario ya guardó una versión sin eventos por algún bug previo, re-seed:
-  seedBasePlan(trip);
-  saveTrip(trip);
+  let trip = loadTrip();
+  let loadedFromFile = false;
+
+  // Try to load from trip-data.json if localStorage is empty
+  async function initTripData() {
+    if (!trip) {
+      const fileTrip = await loadTripFromFile();
+      if (fileTrip) {
+        trip = fileTrip;
+        loadedFromFile = true;
+        saveTrip(trip); // Save to localStorage
+        const status = document.getElementById('dataFileStatus');
+        status.innerHTML = '📂 Datos cargados desde trip-data.json';
+        status.style.color = 'var(--accent)';
+      } else {
+        trip = defaultTrip();
+      }
+    }
+    // Si el usuario ya guardó una versión sin eventos por algún bug previo, re-seed:
+    seedBasePlan(trip);
+    saveTrip(trip);
+    rebuildCityFilter();
+    renderEverything();
+  }
+
+  // Initialize asynchronously
+  initTripData();
 
   // ---------- UI refs ----------
   const tripTitle = document.getElementById("tripTitle");
@@ -1526,6 +1583,7 @@
   const inpTripName = document.getElementById("inpTripName");
   const inpStartDate = document.getElementById("inpStartDate");
   const btnSaveTrip = document.getElementById("btnSaveTrip");
+  const btnSaveFile = document.getElementById("btnSaveFile");
   const btnReset = document.getElementById("btnReset");
   const btnExport = document.getElementById("btnExport");
   const btnExportPdf = document.getElementById("btnExportPdf");
@@ -1688,6 +1746,11 @@
     a.download = `${trip.name.replace(/\s+/g,'_')}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  });
+
+  // Save to trip-data.json for server deployment
+  btnSaveFile.addEventListener("click", () => {
+    saveTripToFile();
   });
 
   inpImport.addEventListener("change", async (e) => {
@@ -2760,8 +2823,7 @@
   }
 
   // ---------- Init ----------
-  rebuildCityFilter();
-  renderEverything();
+  // Note: Initial render is now handled by initTripData() which also loads from file if needed
 
 </script>
 </body>
