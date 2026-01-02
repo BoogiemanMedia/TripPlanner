@@ -1549,33 +1549,33 @@
   }
 
   // ---------- State ----------
-  let trip = loadTrip();
-  let loadedFromFile = false;
+  let trip = loadTrip() || defaultTrip();
+  // Si el usuario ya guardó una versión sin eventos por algún bug previo, re-seed:
+  seedBasePlan(trip);
+  saveTrip(trip);
 
-  // Try to load from trip-data.json if localStorage is empty
-  async function initTripData() {
-    if (!trip) {
+  // Try to load from trip-data.json if localStorage was empty (for server deployment)
+  async function tryLoadFromFile() {
+    const localData = localStorage.getItem(STORAGE_KEY);
+    // Only try to load from file if localStorage is empty or very basic
+    if (!localData || localData.length < 100) {
       const fileTrip = await loadTripFromFile();
-      if (fileTrip) {
+      if (fileTrip && fileTrip.cities && fileTrip.cities.length > 0) {
         trip = fileTrip;
-        loadedFromFile = true;
-        saveTrip(trip); // Save to localStorage
+        saveTrip(trip);
+        rebuildCityFilter();
+        renderEverything();
         const status = document.getElementById('dataFileStatus');
-        status.innerHTML = '📂 Datos cargados desde trip-data.json';
-        status.style.color = 'var(--accent)';
-      } else {
-        trip = defaultTrip();
+        if (status) {
+          status.innerHTML = '📂 Datos cargados desde trip-data.json';
+          status.style.color = 'var(--accent)';
+        }
       }
     }
-    // Si el usuario ya guardó una versión sin eventos por algún bug previo, re-seed:
-    seedBasePlan(trip);
-    saveTrip(trip);
-    rebuildCityFilter();
-    renderEverything();
   }
 
-  // Initialize asynchronously
-  initTripData();
+  // Try loading from file after initial render
+  tryLoadFromFile();
 
   // ---------- UI refs ----------
   const tripTitle = document.getElementById("tripTitle");
@@ -2823,7 +2823,8 @@
   }
 
   // ---------- Init ----------
-  // Note: Initial render is now handled by initTripData() which also loads from file if needed
+  rebuildCityFilter();
+  renderEverything();
 
 </script>
 </body>
