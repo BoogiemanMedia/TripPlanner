@@ -1287,12 +1287,18 @@
     </div>
     <div id="viewMap" class="view" style="display:none;">
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-          <h2 style="margin:0;">🗺️ Mapa del Viaje</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <h2 style="margin:0;">🗺️ Mapa</h2>
+            <select id="mapCitySelector" style="padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); font-size:14px;">
+              <option value="all">Vista general del viaje</option>
+            </select>
+          </div>
           <div id="weatherInfo" class="weather-widget"></div>
         </div>
         <div id="mapContainer" style="height:500px; border-radius:12px; overflow:hidden;"></div>
         <div id="mapLegend" style="margin-top:12px;"></div>
+        <div id="mapDaySelector" style="margin-top:12px; display:none;"></div>
       </div>
     </div>
     <div id="viewToday" class="view" style="display:none;">
@@ -2703,6 +2709,15 @@
               <span>Ticket comprado</span>
             </label>
           </div>
+          <div class="edit-field full-width" style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line);">
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              📍 Ubicación en mapa <span style="font-size:11px; color:var(--muted);">(opcional - para ver en mapa de ciudad)</span>
+            </label>
+            <div style="display:flex; gap:8px;">
+              <input type="number" step="any" id="modalEventLat" value="${event?.lat || ''}" placeholder="Latitud (ej: 40.4168)" style="flex:1;">
+              <input type="number" step="any" id="modalEventLng" value="${event?.lng || ''}" placeholder="Longitud (ej: -3.7038)" style="flex:1;">
+            </div>
+          </div>
         </div>
         <div class="edit-actions">
           <button class="primary" id="modalSaveBtn">💾 Guardar</button>
@@ -2732,6 +2747,9 @@
         return;
       }
 
+      const latVal = document.getElementById('modalEventLat').value;
+      const lngVal = document.getElementById('modalEventLng').value;
+
       const eventData = {
         id: event?.id || uid(),
         title: title,
@@ -2741,7 +2759,9 @@
         link: document.getElementById('modalEventLink').value,
         notes: document.getElementById('modalEventNotes').value,
         ticketRequired: document.getElementById('modalEventTicket').checked,
-        ticketBought: document.getElementById('modalEventBought').checked
+        ticketBought: document.getElementById('modalEventBought').checked,
+        lat: latVal ? parseFloat(latVal) : null,
+        lng: lngVal ? parseFloat(lngVal) : null
       };
 
       if (isNew) {
@@ -2928,10 +2948,15 @@
   }
 
   // ---------- Render Map ----------
+  let selectedMapCity = 'all';
+  let selectedMapDay = 'all';
+
   function renderMap() {
     const mapContainer = document.getElementById('mapContainer');
     const mapLegend = document.getElementById('mapLegend');
+    const mapDaySelector = document.getElementById('mapDaySelector');
     const weatherInfo = document.getElementById('weatherInfo');
+    const citySelector = document.getElementById('mapCitySelector');
 
     // Get cities with coordinates
     const citiesWithCoords = trip.cities.map(c => ({
@@ -2939,8 +2964,24 @@
       coords: getCityCoords(c)
     })).filter(c => c.coords);
 
+    // Populate city selector
+    const currentSelection = citySelector.value;
+    citySelector.innerHTML = '<option value="all">🌍 Vista general del viaje</option>';
+    citiesWithCoords.forEach(c => {
+      citySelector.innerHTML += `<option value="${c.id}" style="color:${c.color};">📍 ${escapeHtml(c.name)}</option>`;
+    });
+    citySelector.value = currentSelection || 'all';
+
+    // Wire city selector change
+    citySelector.onchange = () => {
+      selectedMapCity = citySelector.value;
+      selectedMapDay = 'all';
+      renderMap();
+    };
+
     if (citiesWithCoords.length === 0) {
       mapContainer.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted);">No hay ciudades con coordenadas disponibles.</p>';
+      mapDaySelector.style.display = 'none';
       return;
     }
 
@@ -2959,7 +3000,21 @@
       }
     });
 
-    // Add markers for each city
+    // Determine if we're showing trip overview or city detail
+    const selectedCity = citiesWithCoords.find(c => c.id === selectedMapCity);
+
+    if (selectedCity) {
+      // CITY DETAIL VIEW
+      renderCityMap(selectedCity, mapLegend, mapDaySelector, weatherInfo);
+    } else {
+      // TRIP OVERVIEW
+      renderTripOverviewMap(citiesWithCoords, mapLegend, mapDaySelector, weatherInfo);
+    }
+  }
+
+  function renderTripOverviewMap(citiesWithCoords, mapLegend, mapDaySelector, weatherInfo) {
+    mapDaySelector.style.display = 'none';
+
     const markers = [];
     const routePoints = [];
 
@@ -2967,7 +3022,6 @@
       const { lat, lng } = city.coords;
       routePoints.push([lat, lng]);
 
-      // Custom marker icon with city color
       const markerIcon = L.divIcon({
         className: 'custom-marker',
         html: `<div style="
@@ -3001,25 +3055,22 @@
       markers.push(marker);
     });
 
-    // Draw route line
     if (routePoints.length > 1) {
       L.polyline(routePoints, {
-        color: 'var(--accent)',
+        color: '#3b82f6',
         weight: 3,
         opacity: 0.7,
         dashArray: '10, 10'
       }).addTo(leafletMap);
     }
 
-    // Fit bounds to show all markers
     const group = L.featureGroup(markers);
     leafletMap.fitBounds(group.getBounds().pad(0.1));
 
-    // Render legend
     mapLegend.innerHTML = `
       <div style="display:flex; flex-wrap:wrap; gap:12px;">
         ${citiesWithCoords.map((c, i) => `
-          <div style="display:flex; align-items:center; gap:6px;">
+          <div style="display:flex; align-items:center; gap:6px; cursor:pointer;" onclick="document.getElementById('mapCitySelector').value='${c.id}'; selectedMapCity='${c.id}'; renderMap();">
             <span style="
               background:${c.color};
               color:white;
@@ -3038,11 +3089,9 @@
       </div>
     `;
 
-    // Fetch weather for first city (current location or next destination)
+    // Weather for current city
     const todayDate = new Date().toISOString().slice(0, 10);
     let currentCity = citiesWithCoords[0];
-
-    // Find current city based on today's date
     for (const city of trip.cities) {
       for (const day of (city.days || [])) {
         if (day.date === todayDate) {
@@ -3053,21 +3102,232 @@
       }
     }
 
-    // Fetch and display weather
     if (currentCity?.coords) {
-      weatherInfo.innerHTML = '<span style="color:var(--muted);font-size:12px;">Cargando clima...</span>';
+      weatherInfo.innerHTML = '<span style="color:var(--muted);font-size:12px;">Cargando...</span>';
       fetchWeather(currentCity.coords.lat, currentCity.coords.lng).then(data => {
         if (data && data.current) {
           const temp = Math.round(data.current.temperature_2m);
           const icon = getWeatherIcon(data.current.weather_code);
-          const desc = getWeatherDesc(data.current.weather_code);
           weatherInfo.innerHTML = `
-            <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--chip); border-radius:8px;">
-              <span style="font-size:24px;">${icon}</span>
-              <div>
-                <div style="font-weight:600;">${temp}°C</div>
-                <div style="font-size:11px; color:var(--muted);">${desc} - ${escapeHtml(currentCity.name)}</div>
-              </div>
+            <div style="display:flex; align-items:center; gap:6px; padding:6px 10px; background:var(--chip); border-radius:8px;">
+              <span style="font-size:20px;">${icon}</span>
+              <span style="font-weight:600;">${temp}°C</span>
+            </div>
+          `;
+        } else {
+          weatherInfo.innerHTML = '';
+        }
+      });
+    }
+  }
+
+  function renderCityMap(city, mapLegend, mapDaySelector, weatherInfo) {
+    const cityCoords = city.coords;
+    const days = city.days || [];
+
+    // Day colors for routes
+    const dayColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+
+    // Build day selector
+    mapDaySelector.style.display = 'block';
+    mapDaySelector.innerHTML = `
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+        <span style="font-weight:600; font-size:14px;">Ver día:</span>
+        <button class="day-filter-btn ${selectedMapDay === 'all' ? 'active' : ''}" data-day="all" style="
+          padding: 6px 12px;
+          border-radius: 6px;
+          border: 1px solid var(--line);
+          background: ${selectedMapDay === 'all' ? city.color : 'var(--panel)'};
+          color: ${selectedMapDay === 'all' ? 'white' : 'var(--text)'};
+          cursor: pointer;
+          font-size: 13px;
+        ">Todos</button>
+        ${days.map((d, i) => `
+          <button class="day-filter-btn ${selectedMapDay === d.id ? 'active' : ''}" data-day="${d.id}" style="
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid ${dayColors[i % dayColors.length]};
+            background: ${selectedMapDay === d.id ? dayColors[i % dayColors.length] : 'var(--panel)'};
+            color: ${selectedMapDay === d.id ? 'white' : dayColors[i % dayColors.length]};
+            cursor: pointer;
+            font-size: 13px;
+          ">Día ${i + 1}</button>
+        `).join('')}
+      </div>
+    `;
+
+    // Wire day buttons
+    mapDaySelector.querySelectorAll('.day-filter-btn').forEach(btn => {
+      btn.onclick = () => {
+        selectedMapDay = btn.dataset.day;
+        renderMap();
+      };
+    });
+
+    const markers = [];
+    const allPoints = [];
+
+    // Add hotel marker (home base)
+    const hotelIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `<div style="
+        background: ${city.color};
+        color: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      ">🏨</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+
+    const hotelMarker = L.marker([cityCoords.lat, cityCoords.lng], { icon: hotelIcon })
+      .bindPopup(`
+        <div style="min-width:150px;">
+          <strong>🏨 Hotel Base</strong><br/>
+          <span>${escapeHtml(city.hotel || 'Sin hotel definido')}</span><br/>
+          <span style="color:#666;">${escapeHtml(city.name)}</span>
+        </div>
+      `)
+      .addTo(leafletMap);
+
+    markers.push(hotelMarker);
+    allPoints.push([cityCoords.lat, cityCoords.lng]);
+
+    // Add events for each day
+    days.forEach((day, dayIndex) => {
+      if (selectedMapDay !== 'all' && selectedMapDay !== day.id) return;
+
+      const dayColor = dayColors[dayIndex % dayColors.length];
+      const dayEvents = (day.events || []).filter(e => e.lat && e.lng);
+      const routePoints = [[cityCoords.lat, cityCoords.lng]]; // Start from hotel
+
+      dayEvents.forEach((evt, evtIndex) => {
+        allPoints.push([evt.lat, evt.lng]);
+        routePoints.push([evt.lat, evt.lng]);
+
+        const eventIcon = L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="
+            background: ${dayColor};
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+          ">${getEventIcon(evt.type)}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+
+        const marker = L.marker([evt.lat, evt.lng], { icon: eventIcon })
+          .bindPopup(`
+            <div style="min-width:180px;">
+              <strong>${escapeHtml(evt.title)}</strong><br/>
+              <span style="color:#666;">📅 Día ${dayIndex + 1} - ${day.label}</span><br/>
+              ${evt.startTime ? `<span style="color:#666;">🕐 ${evt.startTime}${evt.endTime ? ' - ' + evt.endTime : ''}</span><br/>` : ''}
+              ${evt.notes ? `<span style="color:#666;">📝 ${escapeHtml(evt.notes)}</span>` : ''}
+            </div>
+          `)
+          .addTo(leafletMap);
+
+        markers.push(marker);
+      });
+
+      // Add return to hotel
+      if (routePoints.length > 1) {
+        routePoints.push([cityCoords.lat, cityCoords.lng]);
+
+        // Draw route for this day
+        L.polyline(routePoints, {
+          color: dayColor,
+          weight: 3,
+          opacity: 0.8
+        }).addTo(leafletMap);
+
+        // Add numbered markers on route
+        routePoints.forEach((point, idx) => {
+          if (idx === 0 || idx === routePoints.length - 1) return; // Skip hotel points
+          const orderMarker = L.divIcon({
+            className: 'route-order',
+            html: `<div style="
+              background: white;
+              color: ${dayColor};
+              width: 16px;
+              height: 16px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              font-weight: bold;
+              border: 2px solid ${dayColor};
+              box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            ">${idx}</div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          });
+          L.marker(point, { icon: orderMarker, interactive: false }).addTo(leafletMap);
+        });
+      }
+    });
+
+    // Fit bounds
+    if (allPoints.length > 1) {
+      const bounds = L.latLngBounds(allPoints);
+      leafletMap.fitBounds(bounds.pad(0.15));
+    } else {
+      leafletMap.setView([cityCoords.lat, cityCoords.lng], 14);
+    }
+
+    // Count events with coordinates
+    const totalEventsWithCoords = days.reduce((sum, d) =>
+      sum + (d.events || []).filter(e => e.lat && e.lng).length, 0);
+    const totalEvents = days.reduce((sum, d) => sum + (d.events || []).length, 0);
+
+    mapLegend.innerHTML = `
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:18px;">🏨</span>
+          <span style="font-size:13px;">Hotel (base)</span>
+        </div>
+        ${days.map((d, i) => {
+          const eventsInDay = (d.events || []).filter(e => e.lat && e.lng).length;
+          return eventsInDay > 0 ? `
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="width:12px; height:12px; border-radius:50%; background:${dayColors[i % dayColors.length]};"></span>
+              <span style="font-size:13px;">Día ${i + 1} (${eventsInDay} lugares)</span>
+            </div>
+          ` : '';
+        }).join('')}
+        <div style="margin-left:auto; font-size:12px; color:var(--muted);">
+          📍 ${totalEventsWithCoords}/${totalEvents} eventos con ubicación
+        </div>
+      </div>
+    `;
+
+    // Weather for city
+    if (cityCoords) {
+      weatherInfo.innerHTML = '<span style="color:var(--muted);font-size:12px;">...</span>';
+      fetchWeather(cityCoords.lat, cityCoords.lng).then(data => {
+        if (data && data.current) {
+          const temp = Math.round(data.current.temperature_2m);
+          const icon = getWeatherIcon(data.current.weather_code);
+          weatherInfo.innerHTML = `
+            <div style="display:flex; align-items:center; gap:6px; padding:6px 10px; background:var(--chip); border-radius:8px;">
+              <span style="font-size:20px;">${icon}</span>
+              <span style="font-weight:600;">${temp}°C</span>
             </div>
           `;
         } else {
