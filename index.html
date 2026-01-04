@@ -2972,13 +2972,26 @@
   async function geocodePlace(placeName, cityName) {
     const cacheKey = getCacheKey(placeName, cityName);
 
-    // Check cache first
-    if (geocodeCache[cacheKey]) {
+    // Check cache first (including null = not found)
+    if (cacheKey in geocodeCache) {
       return geocodeCache[cacheKey];
     }
 
+    // Clean up place name for better search results
+    let cleanName = placeName
+      .replace(/\([^)]*\)/g, '')  // Remove parenthetical content
+      .replace(/\s*[-–—]\s*.*/g, '')  // Remove everything after dash
+      .replace(/[""„"«»]/g, '')  // Remove fancy quotes
+      .trim();
+
+    // If name is too short after cleanup, use original
+    if (cleanName.length < 3) {
+      cleanName = placeName.split(/[-–—(]/)[0].trim();
+    }
+
     // Build search query - place name + city
-    const query = `${placeName}, ${cityName}`;
+    const query = `${cleanName}, ${cityName}`;
+    console.log(`Geocoding: "${query}"`);
 
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
@@ -2988,7 +3001,10 @@
         }
       });
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        console.warn(`Geocode failed for "${query}": HTTP ${response.status}`);
+        return null;
+      }
 
       const data = await response.json();
       if (data && data.length > 0) {
@@ -2997,17 +3013,20 @@
           lng: parseFloat(data[0].lon),
           displayName: data[0].display_name
         };
+        console.log(`  Found: ${result.displayName.substring(0, 50)}...`);
         // Cache the result
         geocodeCache[cacheKey] = result;
         saveGeocodeCache();
         return result;
       }
 
+      console.warn(`  Not found: "${query}"`);
       // Cache null result to avoid repeated lookups
       geocodeCache[cacheKey] = null;
       saveGeocodeCache();
       return null;
-    } catch {
+    } catch (err) {
+      console.error(`Geocode error for "${query}":`, err);
       return null;
     }
   }
@@ -3015,26 +3034,32 @@
   // Geocode multiple places with rate limiting (1 req/sec for Nominatim)
   async function geocodePlaces(places, cityName, onProgress) {
     const results = [];
+    let successCount = 0;
+    let failCount = 0;
+
     for (let i = 0; i < places.length; i++) {
       const place = places[i];
       const cacheKey = getCacheKey(place.title, cityName);
 
-      // If already cached, use it
-      if (geocodeCache[cacheKey] !== undefined) {
-        results.push({ ...place, geocoded: geocodeCache[cacheKey] });
-        if (onProgress) onProgress(i + 1, places.length);
+      // If already cached (including null), use it
+      if (cacheKey in geocodeCache) {
+        const cached = geocodeCache[cacheKey];
+        results.push({ ...place, geocoded: cached });
+        if (cached) successCount++; else failCount++;
+        if (onProgress) onProgress(i + 1, places.length, successCount, failCount);
         continue;
       }
 
       // Geocode with rate limiting
       const result = await geocodePlace(place.title, cityName);
       results.push({ ...place, geocoded: result });
+      if (result) successCount++; else failCount++;
 
-      if (onProgress) onProgress(i + 1, places.length);
+      if (onProgress) onProgress(i + 1, places.length, successCount, failCount);
 
-      // Wait 1 second between requests (Nominatim rate limit)
+      // Wait 1.2 seconds between requests (Nominatim rate limit with margin)
       if (i < places.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1200));
       }
     }
     return results;
@@ -3287,6 +3312,9 @@
           <button id="btnGeocode" class="primary" style="padding:6px 14px; font-size:13px;">
             🔍 Buscar ubicaciones automáticamente
           </button>
+          <button id="btnClearCache" style="padding:6px 10px; font-size:12px; background:var(--panel); border:1px solid var(--line); border-radius:6px; cursor:pointer;" title="Limpiar caché y reintentar lugares no encontrados">
+            🔄 Reintentar fallidos
+          </button>
           <span id="geocodeProgress" style="font-size:12px; color:var(--muted);"></span>
         </div>
       ` : ''}
@@ -3300,6 +3328,23 @@
       };
     });
 
+    // Wire clear cache button (retry failed)
+    const btnClearCache = document.getElementById('btnClearCache');
+    if (btnClearCache) {
+      btnClearCache.onclick = () => {
+        // Remove only null (failed) entries from cache for this city
+        const keysToRemove = [];
+        for (const key in geocodeCache) {
+          if (geocodeCache[key] === null && key.includes(cityName.toLowerCase())) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => delete geocodeCache[k]);
+        saveGeocodeCache();
+        renderMap();
+      };
+    }
+
     // Wire geocode button
     const btnGeocode = document.getElementById('btnGeocode');
     if (btnGeocode) {
@@ -3308,8 +3353,8 @@
         btnGeocode.textContent = '⏳ Buscando...';
         const progressEl = document.getElementById('geocodeProgress');
 
-        await geocodePlaces(eventsWithoutCoords, cityName, (done, total) => {
-          progressEl.textContent = `${done}/${total} lugares procesados`;
+        await geocodePlaces(eventsWithoutCoords, cityName, (done, total, success, fail) => {
+          progressEl.innerHTML = `${done}/${total} procesados <span style="color:var(--success);">✓${success}</span> <span style="color:var(--danger);">✗${fail}</span>`;
         });
 
         // Re-render map with new coordinates
