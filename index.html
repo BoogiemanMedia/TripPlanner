@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Trip Planner Local</title>
 
   <!-- Drag & drop -->
@@ -3210,8 +3213,7 @@
             span.style.display = 'none';
           }
         });
-      } catch (e) {
-        console.log('Weather error:', city.cleanName, e);
+      } catch {
         document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
           span.style.display = 'none';
         });
@@ -3219,47 +3221,38 @@
     }
   }
 
-  // Try multiple weather APIs with fallback
+  // Try multiple weather APIs with fallback (7Timer first - most reliable)
   async function fetchWeatherWithFallback(cityName, coords) {
-    console.log('Fetching weather for:', cityName);
-
-    // API 1: wttr.in (no key needed)
-    try {
-      console.log('Trying wttr.in...');
-      const data = await fetchWithTimeout(`https://wttr.in/${encodeURIComponent(cityName)}?format=j1`, 6000);
-      if (data && data.weather) {
-        console.log('wttr.in SUCCESS');
-        return parseWttrResponse(data);
-      }
-    } catch (e) { console.log('wttr.in failed:', e.message); }
-
-    // API 2: Open-Meteo (no key needed)
+    // API 1: 7Timer (most reliable, no key needed)
     if (coords) {
       try {
-        console.log('Trying Open-Meteo...');
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=14`;
-        const data = await fetchWithTimeout(url, 6000);
-        if (data && data.daily) {
-          console.log('Open-Meteo SUCCESS');
-          return parseOpenMeteoResponse(data);
-        }
-      } catch (e) { console.log('Open-Meteo failed:', e.message); }
-    }
-
-    // API 3: 7Timer (no key needed) - astronomy/weather API
-    if (coords) {
-      try {
-        console.log('Trying 7Timer...');
         const url = `https://www.7timer.info/bin/civillight.php?lon=${coords.lng}&lat=${coords.lat}&ac=0&unit=metric&output=json`;
-        const data = await fetchWithTimeout(url, 6000);
+        const data = await fetchWithTimeout(url, 5000);
         if (data && data.dataseries) {
-          console.log('7Timer SUCCESS');
           return parse7TimerResponse(data);
         }
-      } catch (e) { console.log('7Timer failed:', e.message); }
+      } catch {}
     }
 
-    console.log('All weather APIs failed for:', cityName);
+    // API 2: wttr.in (no key needed)
+    try {
+      const data = await fetchWithTimeout(`https://wttr.in/${encodeURIComponent(cityName)}?format=j1`, 5000);
+      if (data && data.weather) {
+        return parseWttrResponse(data);
+      }
+    } catch {}
+
+    // API 3: Open-Meteo (no key needed)
+    if (coords) {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=14`;
+        const data = await fetchWithTimeout(url, 5000);
+        if (data && data.daily) {
+          return parseOpenMeteoResponse(data);
+        }
+      } catch {}
+    }
+
     return null;
   }
 
