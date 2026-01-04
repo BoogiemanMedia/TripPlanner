@@ -3537,13 +3537,14 @@
 
     // Prepare events for FullCalendar
     const events = [];
+    let eventOrder = 0;
 
-    console.log('=== Calendar Debug ===');
-    for (const city of trip.cities) {
-      console.log(`City: ${city.name}`);
-      for (const day of (city.days || [])) {
-        console.log(`  Day: ${day.date} - ${day.label}`);
-        for (const evt of (day.events || [])) {
+    for (let cityIdx = 0; cityIdx < trip.cities.length; cityIdx++) {
+      const city = trip.cities[cityIdx];
+      for (let dayIdx = 0; dayIdx < (city.days || []).length; dayIdx++) {
+        const day = city.days[dayIdx];
+        for (let evtIdx = 0; evtIdx < (day.events || []).length; evtIdx++) {
+          const evt = day.events[evtIdx];
           // Only add time if it's a valid HH:MM format
           const hasValidStart = isValidTime(evt.startTime);
           const hasValidEnd = isValidTime(evt.endTime);
@@ -3560,12 +3561,10 @@
             end = null;
           }
 
-          console.log(`    Event: ${evt.title} | start: ${start} | allDay: ${!hasValidStart}`);
-
-          // Build title with time label if not a valid time
-          let displayTitle = evt.title;
+          // Build title with city prefix and time label
+          let displayTitle = `[${city.name}] ${evt.title}`;
           if (!hasValidStart && evt.startTime) {
-            displayTitle = `[${evt.startTime}] ${evt.title}`;
+            displayTitle = `[${city.name}] [${evt.startTime}] ${evt.title}`;
           }
 
           events.push({
@@ -3576,8 +3575,12 @@
             allDay: !hasValidStart,
             backgroundColor: city.color,
             borderColor: city.color,
+            order: eventOrder++,
             extendedProps: {
               cityName: city.name,
+              cityIndex: cityIdx,
+              dayIndex: dayIdx,
+              eventIndex: evtIdx,
               type: evt.type,
               notes: evt.notes
             }
@@ -3610,13 +3613,16 @@
         list: 'Lista'
       },
       events: events,
+      // Order events by timeline order (city order, then day order, then event order)
+      eventOrder: 'order',
       eventDidMount: function(info) {
         // Add tooltip with city name
         info.el.title = info.event.extendedProps.cityName;
       },
       eventClick: function(info) {
         const props = info.event.extendedProps;
-        alert(`${info.event.title}\n\n📍 ${props.cityName}\n📌 ${props.type || 'Evento'}${props.notes ? '\n\n📝 ' + props.notes : ''}`);
+        const cleanTitle = info.event.title.replace(/^\[[^\]]+\]\s*/, '').replace(/^\[[^\]]+\]\s*/, '');
+        alert(`${cleanTitle}\n\n📍 ${props.cityName}\n📌 ${props.type || 'Evento'}${props.notes ? '\n\n📝 ' + props.notes : ''}`);
       },
       height: 'auto'
     });
