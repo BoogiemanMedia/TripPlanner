@@ -674,10 +674,227 @@
     @media (max-width: 900px) {
       .wrap {
         grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
       }
       aside {
         border-right: none;
         border-bottom: 1px solid var(--line);
+        height: auto;
+        max-height: 50vh;
+        overflow-y: auto;
+      }
+      main {
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    @media (max-width: 600px) {
+      /* Header */
+      header {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+      }
+      header h1 {
+        font-size: 16px;
+      }
+      header .row {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      /* Sidebar */
+      aside {
+        padding: 12px;
+        max-height: 40vh;
+      }
+      .card {
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+
+      /* Tabs */
+      .tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+      }
+      .tab {
+        padding: 8px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      /* Main content */
+      main {
+        padding: 12px;
+      }
+
+      /* Timeline */
+      .timeline-container {
+        padding: 0;
+      }
+      .timeline-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .timeline-header h2 {
+        font-size: 18px;
+      }
+      .timeline-stats {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .timeline-stat {
+        min-width: auto;
+        padding: 8px;
+      }
+      .timeline-stat .value {
+        font-size: 18px;
+      }
+      .timeline-legend {
+        gap: 8px;
+        font-size: 11px;
+      }
+      .timeline-legend-item {
+        padding: 4px 8px;
+      }
+      .timeline-day {
+        margin-left: 20px;
+        padding: 12px;
+      }
+      .timeline-day-marker {
+        left: -20px;
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+      }
+      .timeline-day-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .timeline-day-header .date {
+        font-size: 14px;
+      }
+      .timeline-day-header .hotel {
+        font-size: 11px;
+      }
+      .timeline-event {
+        padding: 10px;
+        gap: 8px;
+      }
+      .timeline-event .icon {
+        font-size: 18px;
+      }
+      .timeline-event .content .event-title {
+        font-size: 13px;
+      }
+      .timeline-event .content .event-meta {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .timeline-event-actions {
+        flex-direction: column;
+        gap: 4px;
+      }
+      .event-handle {
+        display: none;
+      }
+
+      /* Edit modal */
+      .timeline-modal {
+        width: 95%;
+        max-height: 90vh;
+        padding: 16px;
+      }
+      .edit-grid {
+        grid-template-columns: 1fr;
+      }
+
+      /* Map */
+      #mapContainer {
+        height: 350px !important;
+      }
+      #mapCitySelector {
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      /* Calendar */
+      #calendarContainer {
+        font-size: 12px;
+      }
+      .fc-toolbar {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .fc-toolbar-chunk {
+        display: flex;
+        justify-content: center;
+      }
+
+      /* City cards in sidebar */
+      .city {
+        padding: 10px;
+      }
+      .city-header {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      /* Buttons */
+      button {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .btn-icon {
+        padding: 6px;
+      }
+
+      /* Forms */
+      input, select, textarea {
+        padding: 10px;
+        font-size: 14px; /* Prevent zoom on iOS */
+      }
+
+      /* Export button */
+      #btnExportICS {
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      /* Today view */
+      #todayContent {
+        padding: 8px;
+      }
+
+      /* Tickets view */
+      .ticket-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+    }
+
+    /* Very small screens */
+    @media (max-width: 380px) {
+      header h1 {
+        font-size: 14px;
+      }
+      .timeline-stat .value {
+        font-size: 16px;
+      }
+      .timeline-stat .label {
+        font-size: 9px;
+      }
+      .tab {
+        padding: 6px 10px;
+        font-size: 11px;
       }
     }
 
@@ -2959,23 +3176,22 @@
     const weatherContainer = document.getElementById('timelineWeather');
     if (weatherContainer) weatherContainer.style.display = 'none';
 
-    // Get unique cities with coordinates
-    const citiesWithCoords = new Map();
+    // Get unique cities with their names (for wttr.in API)
+    const uniqueCities = new Map();
     for (const city of trip.cities) {
-      if (citiesWithCoords.has(city.id)) continue;
-      const coords = getCityCoords(city);
-      if (coords) {
-        citiesWithCoords.set(city.id, { ...city, coords });
-      }
+      if (uniqueCities.has(city.id)) continue;
+      // Clean city name for API (remove parentheses like "(inicio)")
+      const cleanName = city.name.replace(/\s*\([^)]*\)/g, '').trim();
+      uniqueCities.set(city.id, { ...city, cleanName });
     }
 
-    if (citiesWithCoords.size === 0) return;
+    if (uniqueCities.size === 0) return;
 
     // Fetch weather for each city and populate day cards
-    for (const [cityId, city] of citiesWithCoords) {
+    for (const [cityId, city] of uniqueCities) {
       try {
-        const data = await fetchWeatherDaily(city.coords.lat, city.coords.lng);
-        if (!data || !data.daily) {
+        const data = await fetchWeatherWttr(city.cleanName);
+        if (!data || !data.weather) {
           // API failed - hide weather spans for this city
           document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
             span.style.display = 'none';
@@ -2983,13 +3199,13 @@
           continue;
         }
 
-        // Create a map of date -> weather
+        // Create a map of date -> weather from wttr.in response
         const dailyWeather = {};
-        for (let i = 0; i < data.daily.time.length; i++) {
-          dailyWeather[data.daily.time[i]] = {
-            max: Math.round(data.daily.temperature_2m_max[i]),
-            min: Math.round(data.daily.temperature_2m_min[i]),
-            code: data.daily.weather_code[i]
+        for (const day of data.weather) {
+          dailyWeather[day.date] = {
+            max: Math.round(parseFloat(day.maxtempC)),
+            min: Math.round(parseFloat(day.mintempC)),
+            desc: day.hourly[4]?.weatherDesc?.[0]?.value || '' // midday weather
           };
         }
 
@@ -2998,7 +3214,7 @@
           const date = span.dataset.date;
           const weather = dailyWeather[date];
           if (weather) {
-            const icon = getWeatherIcon(weather.code);
+            const icon = getWeatherIconFromDesc(weather.desc);
             span.innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:13px;">${icon} ${weather.max}° / ${weather.min}°</span>`;
           } else {
             // Date is beyond forecast range - hide span
@@ -3014,13 +3230,13 @@
     }
   }
 
-  // Fetch daily weather forecast (14 days) with timeout
-  async function fetchWeatherDaily(lat, lng) {
+  // Fetch weather from wttr.in API
+  async function fetchWeatherWttr(cityName) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=14`;
+      const url = `https://wttr.in/${encodeURIComponent(cityName)}?format=j1`;
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
@@ -3029,6 +3245,19 @@
     } catch {
       return null;
     }
+  }
+
+  // Get weather icon from description text
+  function getWeatherIconFromDesc(desc) {
+    const d = desc.toLowerCase();
+    if (d.includes('sunny') || d.includes('clear')) return '☀️';
+    if (d.includes('partly cloudy')) return '⛅';
+    if (d.includes('cloudy') || d.includes('overcast')) return '☁️';
+    if (d.includes('rain') || d.includes('drizzle')) return '🌧️';
+    if (d.includes('snow')) return '❄️';
+    if (d.includes('thunder') || d.includes('storm')) return '⛈️';
+    if (d.includes('fog') || d.includes('mist')) return '🌫️';
+    return '🌤️';
   }
 
   // ---------- Geocoding (Nominatim) ----------
