@@ -2955,8 +2955,6 @@
 
   // Load weather for each day in timeline
   async function loadTimelineWeather() {
-    console.log('=== loadTimelineWeather called ===');
-
     // Hide the header weather container (we show weather per day now)
     const weatherContainer = document.getElementById('timelineWeather');
     if (weatherContainer) weatherContainer.style.display = 'none';
@@ -2966,38 +2964,21 @@
     for (const city of trip.cities) {
       if (citiesWithCoords.has(city.id)) continue;
       const coords = getCityCoords(city);
-      console.log('City:', city.name, 'Coords:', coords);
       if (coords) {
         citiesWithCoords.set(city.id, { ...city, coords });
       }
     }
 
-    console.log('Cities with coords:', citiesWithCoords.size);
-    if (citiesWithCoords.size === 0) {
-      console.log('No cities with coordinates found!');
-      return;
-    }
-
-    // Check if day-weather spans exist
-    const allWeatherSpans = document.querySelectorAll('.day-weather');
-    console.log('Day-weather spans found:', allWeatherSpans.length);
-
-    // Show loading state on all spans
-    allWeatherSpans.forEach(span => {
-      span.innerHTML = `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:11px;">⏳</span>`;
-    });
+    if (citiesWithCoords.size === 0) return;
 
     // Fetch weather for each city and populate day cards
     for (const [cityId, city] of citiesWithCoords) {
       try {
-        console.log('Fetching weather for:', city.name, city.coords);
         const data = await fetchWeatherDaily(city.coords.lat, city.coords.lng);
-        console.log('Weather data received:', data ? 'yes' : 'no', data?.daily ? 'has daily' : 'no daily');
         if (!data || !data.daily) {
-          // API failed or returned no data - show error state
-          const spans = document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`);
-          spans.forEach(span => {
-            span.innerHTML = `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:11px;" title="No disponible">⚠️</span>`;
+          // API failed - hide weather spans for this city
+          document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
+            span.style.display = 'none';
           });
           continue;
         }
@@ -3011,35 +2992,26 @@
             code: data.daily.weather_code[i]
           };
         }
-        console.log('Daily weather dates:', Object.keys(dailyWeather));
 
         // Update all day-weather spans for this city
-        const spans = document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`);
-        console.log('Spans for city', cityId, ':', spans.length);
-        spans.forEach(span => {
+        document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
           const date = span.dataset.date;
           const weather = dailyWeather[date];
-          console.log('  Date:', date, 'Weather:', weather);
           if (weather) {
             const icon = getWeatherIcon(weather.code);
             span.innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:13px;">${icon} ${weather.max}° / ${weather.min}°</span>`;
-            console.log('  Updated span with:', icon, weather.max, weather.min);
           } else {
-            // Date is beyond forecast range - show placeholder
-            span.innerHTML = `<span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:12px; opacity:0.7;">🌤️ --</span>`;
-            console.log('  No weather for date (beyond 14 day forecast):', date);
+            // Date is beyond forecast range - hide span
+            span.style.display = 'none';
           }
         });
-      } catch (e) {
-        console.log('Weather error for', city.name, e);
-        // Show error state for this city's spans
-        const spans = document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`);
-        spans.forEach(span => {
-          span.innerHTML = `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:11px;" title="Sin conexión">❌</span>`;
+      } catch {
+        // Hide weather spans for this city on error
+        document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
+          span.style.display = 'none';
         });
       }
     }
-    console.log('=== loadTimelineWeather finished ===');
   }
 
   // Fetch daily weather forecast (14 days) with timeout
@@ -3054,8 +3026,7 @@
 
       if (!response.ok) return null;
       return await response.json();
-    } catch (e) {
-      console.log('fetchWeatherDaily error:', e.message);
+    } catch {
       return null;
     }
   }
