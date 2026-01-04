@@ -3541,6 +3541,12 @@
   }
 
   // ---------- Render Calendar ----------
+  // Check if string is a valid time format (HH:MM)
+  function isValidTime(str) {
+    if (!str) return false;
+    return /^\d{1,2}:\d{2}$/.test(str);
+  }
+
   function renderCalendar() {
     const calendarEl = document.getElementById('calendarContainer');
 
@@ -3550,14 +3556,29 @@
     for (const city of trip.cities) {
       for (const day of (city.days || [])) {
         for (const evt of (day.events || [])) {
-          const start = day.date + (evt.startTime ? 'T' + evt.startTime : '');
-          const end = evt.endTime ? day.date + 'T' + evt.endTime : null;
+          // Only add time if it's a valid HH:MM format
+          const hasValidStart = isValidTime(evt.startTime);
+          const hasValidEnd = isValidTime(evt.endTime);
+
+          const start = hasValidStart
+            ? day.date + 'T' + evt.startTime
+            : day.date;
+          const end = hasValidEnd
+            ? day.date + 'T' + evt.endTime
+            : null;
+
+          // Build title with time label if not a valid time
+          let displayTitle = evt.title;
+          if (!hasValidStart && evt.startTime) {
+            displayTitle = `[${evt.startTime}] ${evt.title}`;
+          }
 
           events.push({
             id: evt.id,
-            title: evt.title,
+            title: displayTitle,
             start: start,
             end: end,
+            allDay: !hasValidStart,
             backgroundColor: city.color,
             borderColor: city.color,
             extendedProps: {
