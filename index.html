@@ -3434,12 +3434,9 @@
         coords: getEventCoords(evt, cityName)
       })).filter(evt => evt.coords);
 
-      const routePoints = [[baseCoords.lat, baseCoords.lng]]; // Start from hotel
-
       dayEvents.forEach((evt, evtIndex) => {
         const { lat, lng } = evt.coords;
         allPoints.push([lat, lng]);
-        routePoints.push([lat, lng]);
 
         const eventIcon = L.divIcon({
           className: 'custom-marker',
@@ -3473,43 +3470,6 @@
 
         markers.push(marker);
       });
-
-      // Add return to hotel
-      if (routePoints.length > 1) {
-        routePoints.push([baseCoords.lat, baseCoords.lng]);
-
-        // Draw route for this day
-        L.polyline(routePoints, {
-          color: dayColor,
-          weight: 3,
-          opacity: 0.8
-        }).addTo(leafletMap);
-
-        // Add numbered markers on route
-        routePoints.forEach((point, idx) => {
-          if (idx === 0 || idx === routePoints.length - 1) return; // Skip hotel points
-          const orderMarker = L.divIcon({
-            className: 'route-order',
-            html: `<div style="
-              background: white;
-              color: ${dayColor};
-              width: 16px;
-              height: 16px;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 10px;
-              font-weight: bold;
-              border: 2px solid ${dayColor};
-              box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            ">${idx}</div>`,
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-          });
-          L.marker(point, { icon: orderMarker, interactive: false }).addTo(leafletMap);
-        });
-      }
     });
 
     // Fit bounds
@@ -3578,19 +3538,29 @@
     // Prepare events for FullCalendar
     const events = [];
 
+    console.log('=== Calendar Debug ===');
     for (const city of trip.cities) {
+      console.log(`City: ${city.name}`);
       for (const day of (city.days || [])) {
+        console.log(`  Day: ${day.date} - ${day.label}`);
         for (const evt of (day.events || [])) {
           // Only add time if it's a valid HH:MM format
           const hasValidStart = isValidTime(evt.startTime);
           const hasValidEnd = isValidTime(evt.endTime);
 
-          const start = hasValidStart
-            ? day.date + 'T' + evt.startTime
-            : day.date;
-          const end = hasValidEnd
-            ? day.date + 'T' + evt.endTime
-            : null;
+          // Use date only format for allDay, or proper datetime for timed events
+          let start, end;
+          if (hasValidStart) {
+            // Add :00 seconds for proper ISO format
+            start = `${day.date}T${evt.startTime}:00`;
+            end = hasValidEnd ? `${day.date}T${evt.endTime}:00` : null;
+          } else {
+            // All day event - just use date
+            start = day.date;
+            end = null;
+          }
+
+          console.log(`    Event: ${evt.title} | start: ${start} | allDay: ${!hasValidStart}`);
 
           // Build title with time label if not a valid time
           let displayTitle = evt.title;
