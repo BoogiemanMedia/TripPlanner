@@ -2535,6 +2535,7 @@
                 ${escapeHtml(city.name)}
               </span>
               ${getDayTypeBadge(dayType)}
+              <span class="day-weather" data-date="${day.date}" data-city-id="${city.id}"></span>
               ${city.hotel ? `<span class="hotel">🏨 ${escapeHtml(city.hotel)}</span>` : ''}
             </div>
             <div class="timeline-events" data-day-id="${day.id}" data-city-id="${city.id}">
@@ -2952,53 +2953,64 @@
     return 'Variable';
   }
 
-  // Load weather for all cities in timeline
+  // Load weather for each day in timeline
   async function loadTimelineWeather() {
+    // Hide the header weather container (we show weather per day now)
     const weatherContainer = document.getElementById('timelineWeather');
-    if (!weatherContainer) return;
+    if (weatherContainer) weatherContainer.style.display = 'none';
 
     // Get unique cities with coordinates
-    const citiesWithCoords = [];
-    const seenCities = new Set();
+    const citiesWithCoords = new Map();
     for (const city of trip.cities) {
-      if (seenCities.has(city.id)) continue;
-      seenCities.add(city.id);
+      if (citiesWithCoords.has(city.id)) continue;
       const coords = getCityCoords(city);
       if (coords) {
-        citiesWithCoords.push({ ...city, coords });
+        citiesWithCoords.set(city.id, { ...city, coords });
       }
     }
 
-    if (citiesWithCoords.length === 0) {
-      weatherContainer.style.display = 'none';
-      return;
-    }
+    if (citiesWithCoords.size === 0) return;
 
-    // Show loading state
-    weatherContainer.innerHTML = citiesWithCoords.map(city => `
-      <div class="weather-city-card" data-city-id="${city.id}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel); border-radius:8px; border-left:3px solid ${city.color};">
-        <span style="font-size:14px; font-weight:500;">${escapeHtml(city.name.replace(/\s*\([^)]*\)/g, ''))}</span>
-        <span style="color:var(--muted); font-size:12px;">...</span>
-      </div>
-    `).join('');
-
-    // Fetch weather for each city
-    for (const city of citiesWithCoords) {
+    // Fetch weather for each city and populate day cards
+    for (const [cityId, city] of citiesWithCoords) {
       try {
-        const data = await fetchWeather(city.coords.lat, city.coords.lng);
-        const cardEl = weatherContainer.querySelector(`[data-city-id="${city.id}"]`);
-        if (cardEl && data && data.current) {
-          const temp = Math.round(data.current.temperature_2m);
-          const icon = getWeatherIcon(data.current.weather_code);
-          const desc = getWeatherDesc(data.current.weather_code);
-          cardEl.innerHTML = `
-            <span style="font-size:14px; font-weight:500;">${escapeHtml(city.name.replace(/\s*\([^)]*\)/g, ''))}</span>
-            <span style="font-size:18px;">${icon}</span>
-            <span style="font-weight:600;">${temp}°C</span>
-            <span style="color:var(--muted); font-size:12px;">${desc}</span>
-          `;
+        const data = await fetchWeatherDaily(city.coords.lat, city.coords.lng);
+        if (!data || !data.daily) continue;
+
+        // Create a map of date -> weather
+        const dailyWeather = {};
+        for (let i = 0; i < data.daily.time.length; i++) {
+          dailyWeather[data.daily.time[i]] = {
+            max: Math.round(data.daily.temperature_2m_max[i]),
+            min: Math.round(data.daily.temperature_2m_min[i]),
+            code: data.daily.weather_code[i]
+          };
         }
-      } catch {}
+
+        // Update all day-weather spans for this city
+        document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
+          const date = span.dataset.date;
+          const weather = dailyWeather[date];
+          if (weather) {
+            const icon = getWeatherIcon(weather.code);
+            span.innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:13px;">${icon} ${weather.max}° / ${weather.min}°</span>`;
+          }
+        });
+      } catch (e) {
+        console.log('Weather error for', city.name, e);
+      }
+    }
+  }
+
+  // Fetch daily weather forecast (14 days)
+  async function fetchWeatherDaily(lat, lng) {
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=14`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
     }
   }
 
