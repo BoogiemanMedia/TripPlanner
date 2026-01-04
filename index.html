@@ -3143,14 +3143,40 @@
 
   // ---------- Weather API ----------
   async function fetchWeather(lat, lng) {
+    // Use 7Timer API (most reliable)
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`;
+      const url = `https://www.7timer.info/bin/civil.php?lon=${lng}&lat=${lat}&ac=0&unit=metric&output=json&tzshift=0`;
       const response = await fetch(url);
       if (!response.ok) return null;
-      return await response.json();
+      const data = await response.json();
+      if (!data || !data.dataseries || !data.dataseries[0]) return null;
+
+      // Convert to Open-Meteo-like format for compatibility
+      const current = data.dataseries[0];
+      return {
+        current: {
+          temperature_2m: current.temp2m,
+          weather_code: convertWeatherCode(current.weather)
+        }
+      };
     } catch {
       return null;
     }
+  }
+
+  // Convert 7Timer weather string to WMO code
+  function convertWeatherCode(weather) {
+    if (!weather) return 0;
+    if (weather.includes('clear')) return 0;
+    if (weather.includes('pcloudy')) return 2;
+    if (weather.includes('mcloudy')) return 3;
+    if (weather.includes('cloudy')) return 3;
+    if (weather.includes('humid')) return 3;
+    if (weather.includes('lightrain')) return 51;
+    if (weather.includes('rain')) return 61;
+    if (weather.includes('snow')) return 71;
+    if (weather.includes('ts')) return 95;
+    return 0;
   }
 
   function getWeatherIcon(code) {
