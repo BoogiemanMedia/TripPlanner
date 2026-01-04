@@ -3176,13 +3176,13 @@
     const weatherContainer = document.getElementById('timelineWeather');
     if (weatherContainer) weatherContainer.style.display = 'none';
 
-    // Get unique cities with their names (for wttr.in API)
+    // Get unique cities with their names and coordinates
     const uniqueCities = new Map();
     for (const city of trip.cities) {
       if (uniqueCities.has(city.id)) continue;
-      // Clean city name for API (remove parentheses like "(inicio)")
       const cleanName = city.name.replace(/\s*\([^)]*\)/g, '').trim();
-      uniqueCities.set(city.id, { ...city, cleanName });
+      const coords = getCityCoords(city);
+      uniqueCities.set(city.id, { ...city, cleanName, coords });
     }
 
     if (uniqueCities.size === 0) return;
@@ -3190,39 +3190,28 @@
     // Fetch weather for each city and populate day cards
     for (const [cityId, city] of uniqueCities) {
       try {
-        const data = await fetchWeatherWttr(city.cleanName);
-        if (!data || !data.weather) {
-          // API failed - hide weather spans for this city
+        // Try multiple APIs with fallback
+        const data = await fetchWeatherWithFallback(city.cleanName, city.coords);
+
+        if (!data) {
           document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
             span.style.display = 'none';
           });
           continue;
         }
 
-        // Create a map of date -> weather from wttr.in response
-        const dailyWeather = {};
-        for (const day of data.weather) {
-          dailyWeather[day.date] = {
-            max: Math.round(parseFloat(day.maxtempC)),
-            min: Math.round(parseFloat(day.mintempC)),
-            desc: day.hourly[4]?.weatherDesc?.[0]?.value || '' // midday weather
-          };
-        }
-
         // Update all day-weather spans for this city
         document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
           const date = span.dataset.date;
-          const weather = dailyWeather[date];
+          const weather = data.daily[date];
           if (weather) {
-            const icon = getWeatherIconFromDesc(weather.desc);
-            span.innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:13px;">${icon} ${weather.max}° / ${weather.min}°</span>`;
+            span.innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:13px;">${weather.icon} ${weather.max}° / ${weather.min}°</span>`;
           } else {
-            // Date is beyond forecast range - hide span
             span.style.display = 'none';
           }
         });
-      } catch {
-        // Hide weather spans for this city on error
+      } catch (e) {
+        console.log('Weather error:', city.cleanName, e);
         document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
           span.style.display = 'none';
         });
@@ -3230,26 +3219,126 @@
     }
   }
 
-  // Fetch weather from wttr.in API
-  async function fetchWeatherWttr(cityName) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+  // Try multiple weather APIs with fallback
+  async function fetchWeatherWithFallback(cityName, coords) {
+    console.log('Fetching weather for:', cityName);
 
-      const url = `https://wttr.in/${encodeURIComponent(cityName)}?format=j1`;
+    // API 1: wttr.in (no key needed)
+    try {
+      console.log('Trying wttr.in...');
+      const data = await fetchWithTimeout(`https://wttr.in/${encodeURIComponent(cityName)}?format=j1`, 6000);
+      if (data && data.weather) {
+        console.log('wttr.in SUCCESS');
+        return parseWttrResponse(data);
+      }
+    } catch (e) { console.log('wttr.in failed:', e.message); }
+
+    // API 2: Open-Meteo (no key needed)
+    if (coords) {
+      try {
+        console.log('Trying Open-Meteo...');
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=14`;
+        const data = await fetchWithTimeout(url, 6000);
+        if (data && data.daily) {
+          console.log('Open-Meteo SUCCESS');
+          return parseOpenMeteoResponse(data);
+        }
+      } catch (e) { console.log('Open-Meteo failed:', e.message); }
+    }
+
+    // API 3: 7Timer (no key needed) - astronomy/weather API
+    if (coords) {
+      try {
+        console.log('Trying 7Timer...');
+        const url = `https://www.7timer.info/bin/civillight.php?lon=${coords.lng}&lat=${coords.lat}&ac=0&unit=metric&output=json`;
+        const data = await fetchWithTimeout(url, 6000);
+        if (data && data.dataseries) {
+          console.log('7Timer SUCCESS');
+          return parse7TimerResponse(data);
+        }
+      } catch (e) { console.log('7Timer failed:', e.message); }
+    }
+
+    console.log('All weather APIs failed for:', cityName);
+    return null;
+  }
+
+  // Fetch with timeout helper
+  async function fetchWithTimeout(url, timeout = 6000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
-
       if (!response.ok) return null;
       return await response.json();
-    } catch {
-      return null;
+    } catch (e) {
+      clearTimeout(timeoutId);
+      throw e;
     }
+  }
+
+  // Parse wttr.in response
+  function parseWttrResponse(data) {
+    const daily = {};
+    for (const day of data.weather) {
+      const desc = day.hourly?.[4]?.weatherDesc?.[0]?.value || '';
+      daily[day.date] = {
+        max: Math.round(parseFloat(day.maxtempC)),
+        min: Math.round(parseFloat(day.mintempC)),
+        icon: getWeatherIconFromDesc(desc)
+      };
+    }
+    return { daily };
+  }
+
+  // Parse Open-Meteo response
+  function parseOpenMeteoResponse(data) {
+    const daily = {};
+    for (let i = 0; i < data.daily.time.length; i++) {
+      daily[data.daily.time[i]] = {
+        max: Math.round(data.daily.temperature_2m_max[i]),
+        min: Math.round(data.daily.temperature_2m_min[i]),
+        icon: getWeatherIcon(data.daily.weather_code[i])
+      };
+    }
+    return { daily };
+  }
+
+  // Parse 7Timer response
+  function parse7TimerResponse(data) {
+    const daily = {};
+    const today = new Date();
+    for (let i = 0; i < data.dataseries.length; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().slice(0, 10);
+      const d = data.dataseries[i];
+      daily[dateStr] = {
+        max: d.temp2m?.max || 0,
+        min: d.temp2m?.min || 0,
+        icon: get7TimerIcon(d.weather)
+      };
+    }
+    return { daily };
+  }
+
+  // Get icon for 7Timer weather codes
+  function get7TimerIcon(weather) {
+    if (!weather) return '🌤️';
+    if (weather.includes('clear')) return '☀️';
+    if (weather.includes('pcloudy')) return '⛅';
+    if (weather.includes('mcloudy') || weather.includes('cloudy')) return '☁️';
+    if (weather.includes('rain') || weather.includes('shower')) return '🌧️';
+    if (weather.includes('snow')) return '❄️';
+    if (weather.includes('ts')) return '⛈️';
+    if (weather.includes('fog')) return '🌫️';
+    return '🌤️';
   }
 
   // Get weather icon from description text
   function getWeatherIconFromDesc(desc) {
-    const d = desc.toLowerCase();
+    const d = (desc || '').toLowerCase();
     if (d.includes('sunny') || d.includes('clear')) return '☀️';
     if (d.includes('partly cloudy')) return '⛅';
     if (d.includes('cloudy') || d.includes('overcast')) return '☁️';
