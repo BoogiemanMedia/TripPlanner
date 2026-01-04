@@ -2469,6 +2469,8 @@
           </div>
         </div>
 
+        <div id="timelineWeather" class="timeline-weather" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;"></div>
+
         <div class="timeline-legend">
           <div class="timeline-legend-item"><span class="icon">🏛️</span> Museo</div>
           <div class="timeline-legend-item"><span class="icon">🚶</span> Paseo</div>
@@ -2598,6 +2600,9 @@
     `;
 
     container.innerHTML = html;
+
+    // Load weather for all cities
+    loadTimelineWeather();
 
     // Wire drag & drop after rendering
     wireTimelineDnD();
@@ -2945,6 +2950,56 @@
     if (code <= 86) return 'Nieve fuerte';
     if (code >= 95) return 'Tormenta';
     return 'Variable';
+  }
+
+  // Load weather for all cities in timeline
+  async function loadTimelineWeather() {
+    const weatherContainer = document.getElementById('timelineWeather');
+    if (!weatherContainer) return;
+
+    // Get unique cities with coordinates
+    const citiesWithCoords = [];
+    const seenCities = new Set();
+    for (const city of trip.cities) {
+      if (seenCities.has(city.id)) continue;
+      seenCities.add(city.id);
+      const coords = getCityCoords(city);
+      if (coords) {
+        citiesWithCoords.push({ ...city, coords });
+      }
+    }
+
+    if (citiesWithCoords.length === 0) {
+      weatherContainer.style.display = 'none';
+      return;
+    }
+
+    // Show loading state
+    weatherContainer.innerHTML = citiesWithCoords.map(city => `
+      <div class="weather-city-card" data-city-id="${city.id}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel); border-radius:8px; border-left:3px solid ${city.color};">
+        <span style="font-size:14px; font-weight:500;">${escapeHtml(city.name.replace(/\s*\([^)]*\)/g, ''))}</span>
+        <span style="color:var(--muted); font-size:12px;">...</span>
+      </div>
+    `).join('');
+
+    // Fetch weather for each city
+    for (const city of citiesWithCoords) {
+      try {
+        const data = await fetchWeather(city.coords.lat, city.coords.lng);
+        const cardEl = weatherContainer.querySelector(`[data-city-id="${city.id}"]`);
+        if (cardEl && data && data.current) {
+          const temp = Math.round(data.current.temperature_2m);
+          const icon = getWeatherIcon(data.current.weather_code);
+          const desc = getWeatherDesc(data.current.weather_code);
+          cardEl.innerHTML = `
+            <span style="font-size:14px; font-weight:500;">${escapeHtml(city.name.replace(/\s*\([^)]*\)/g, ''))}</span>
+            <span style="font-size:18px;">${icon}</span>
+            <span style="font-weight:600;">${temp}°C</span>
+            <span style="color:var(--muted); font-size:12px;">${desc}</span>
+          `;
+        }
+      } catch {}
+    }
   }
 
   // ---------- Geocoding (Nominatim) ----------
