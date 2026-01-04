@@ -2947,6 +2947,116 @@
     return 'Variable';
   }
 
+  // ---------- Geocoding (Nominatim) ----------
+  const GEOCODE_CACHE_KEY = 'trip_planner_geocache';
+  let geocodeCache = {};
+  let geocodeQueue = [];
+  let isGeocoding = false;
+
+  // Load cache from localStorage
+  try {
+    const cached = localStorage.getItem(GEOCODE_CACHE_KEY);
+    if (cached) geocodeCache = JSON.parse(cached);
+  } catch {}
+
+  function saveGeocodeCache() {
+    try {
+      localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(geocodeCache));
+    } catch {}
+  }
+
+  function getCacheKey(placeName, cityName) {
+    return `${placeName.toLowerCase().trim()}|${cityName.toLowerCase().trim()}`;
+  }
+
+  async function geocodePlace(placeName, cityName) {
+    const cacheKey = getCacheKey(placeName, cityName);
+
+    // Check cache first
+    if (geocodeCache[cacheKey]) {
+      return geocodeCache[cacheKey];
+    }
+
+    // Build search query - place name + city
+    const query = `${placeName}, ${cityName}`;
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'TripPlanner/1.0'
+        }
+      });
+
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const result = {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+          displayName: data[0].display_name
+        };
+        // Cache the result
+        geocodeCache[cacheKey] = result;
+        saveGeocodeCache();
+        return result;
+      }
+
+      // Cache null result to avoid repeated lookups
+      geocodeCache[cacheKey] = null;
+      saveGeocodeCache();
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Geocode multiple places with rate limiting (1 req/sec for Nominatim)
+  async function geocodePlaces(places, cityName, onProgress) {
+    const results = [];
+    for (let i = 0; i < places.length; i++) {
+      const place = places[i];
+      const cacheKey = getCacheKey(place.title, cityName);
+
+      // If already cached, use it
+      if (geocodeCache[cacheKey] !== undefined) {
+        results.push({ ...place, geocoded: geocodeCache[cacheKey] });
+        if (onProgress) onProgress(i + 1, places.length);
+        continue;
+      }
+
+      // Geocode with rate limiting
+      const result = await geocodePlace(place.title, cityName);
+      results.push({ ...place, geocoded: result });
+
+      if (onProgress) onProgress(i + 1, places.length);
+
+      // Wait 1 second between requests (Nominatim rate limit)
+      if (i < places.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    return results;
+  }
+
+  // Get event coordinates (from event or geocode cache)
+  function getEventCoords(event, cityName) {
+    // First check if event has explicit coordinates
+    if (event.lat && event.lng) {
+      return { lat: event.lat, lng: event.lng };
+    }
+
+    // Check geocode cache
+    const cacheKey = getCacheKey(event.title, cityName);
+    const cached = geocodeCache[cacheKey];
+    if (cached) {
+      return { lat: cached.lat, lng: cached.lng };
+    }
+
+    return null;
+  }
+
   // ---------- Render Map ----------
   let selectedMapCity = 'all';
   let selectedMapDay = 'all';
@@ -3124,14 +3234,31 @@
   function renderCityMap(city, mapLegend, mapDaySelector, weatherInfo) {
     const cityCoords = city.coords;
     const days = city.days || [];
+    const cityName = city.name.replace(/\s*\([^)]*\)/g, '').trim(); // Remove parenthetical like "(inicio)"
 
     // Day colors for routes
     const dayColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
 
-    // Build day selector
+    // Collect all events and check which have coordinates (explicit or cached)
+    const allEvents = [];
+    const eventsWithoutCoords = [];
+
+    days.forEach(day => {
+      (day.events || []).forEach(evt => {
+        const coords = getEventCoords(evt, cityName);
+        allEvents.push({ ...evt, resolvedCoords: coords, dayId: day.id });
+        if (!coords) {
+          eventsWithoutCoords.push(evt);
+        }
+      });
+    });
+
+    // Build day selector with geocode button
     mapDaySelector.style.display = 'block';
+    const needsGeocoding = eventsWithoutCoords.length > 0;
+
     mapDaySelector.innerHTML = `
-      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:${needsGeocoding ? '12px' : '0'};">
         <span style="font-weight:600; font-size:14px;">Ver día:</span>
         <button class="day-filter-btn ${selectedMapDay === 'all' ? 'active' : ''}" data-day="all" style="
           padding: 6px 12px;
@@ -3154,6 +3281,15 @@
           ">Día ${i + 1}</button>
         `).join('')}
       </div>
+      ${needsGeocoding ? `
+        <div id="geocodePanel" style="padding:12px; background:var(--chip); border-radius:8px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <span style="font-size:13px;">📍 ${eventsWithoutCoords.length} lugares sin ubicación</span>
+          <button id="btnGeocode" class="primary" style="padding:6px 14px; font-size:13px;">
+            🔍 Buscar ubicaciones automáticamente
+          </button>
+          <span id="geocodeProgress" style="font-size:12px; color:var(--muted);"></span>
+        </div>
+      ` : ''}
     `;
 
     // Wire day buttons
@@ -3163,6 +3299,23 @@
         renderMap();
       };
     });
+
+    // Wire geocode button
+    const btnGeocode = document.getElementById('btnGeocode');
+    if (btnGeocode) {
+      btnGeocode.onclick = async () => {
+        btnGeocode.disabled = true;
+        btnGeocode.textContent = '⏳ Buscando...';
+        const progressEl = document.getElementById('geocodeProgress');
+
+        await geocodePlaces(eventsWithoutCoords, cityName, (done, total) => {
+          progressEl.textContent = `${done}/${total} lugares procesados`;
+        });
+
+        // Re-render map with new coordinates
+        renderMap();
+      };
+    }
 
     const markers = [];
     const allPoints = [];
@@ -3205,12 +3358,18 @@
       if (selectedMapDay !== 'all' && selectedMapDay !== day.id) return;
 
       const dayColor = dayColors[dayIndex % dayColors.length];
-      const dayEvents = (day.events || []).filter(e => e.lat && e.lng);
+      // Get events with resolved coordinates (explicit or geocoded)
+      const dayEvents = (day.events || []).map(evt => ({
+        ...evt,
+        coords: getEventCoords(evt, cityName)
+      })).filter(evt => evt.coords);
+
       const routePoints = [[cityCoords.lat, cityCoords.lng]]; // Start from hotel
 
       dayEvents.forEach((evt, evtIndex) => {
-        allPoints.push([evt.lat, evt.lng]);
-        routePoints.push([evt.lat, evt.lng]);
+        const { lat, lng } = evt.coords;
+        allPoints.push([lat, lng]);
+        routePoints.push([lat, lng]);
 
         const eventIcon = L.divIcon({
           className: 'custom-marker',
@@ -3231,7 +3390,7 @@
           iconAnchor: [14, 14]
         });
 
-        const marker = L.marker([evt.lat, evt.lng], { icon: eventIcon })
+        const marker = L.marker([lat, lng], { icon: eventIcon })
           .bindPopup(`
             <div style="min-width:180px;">
               <strong>${escapeHtml(evt.title)}</strong><br/>
@@ -3291,10 +3450,9 @@
       leafletMap.setView([cityCoords.lat, cityCoords.lng], 14);
     }
 
-    // Count events with coordinates
-    const totalEventsWithCoords = days.reduce((sum, d) =>
-      sum + (d.events || []).filter(e => e.lat && e.lng).length, 0);
-    const totalEvents = days.reduce((sum, d) => sum + (d.events || []).length, 0);
+    // Count events with coordinates (including geocoded)
+    const totalEventsWithCoords = allEvents.filter(e => e.resolvedCoords).length;
+    const totalEvents = allEvents.length;
 
     mapLegend.innerHTML = `
       <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
@@ -3303,7 +3461,7 @@
           <span style="font-size:13px;">Hotel (base)</span>
         </div>
         ${days.map((d, i) => {
-          const eventsInDay = (d.events || []).filter(e => e.lat && e.lng).length;
+          const eventsInDay = (d.events || []).filter(e => getEventCoords(e, cityName)).length;
           return eventsInDay > 0 ? `
             <div style="display:flex; align-items:center; gap:6px;">
               <span style="width:12px; height:12px; border-radius:50%; background:${dayColors[i % dayColors.length]};"></span>
@@ -3312,7 +3470,7 @@
           ` : '';
         }).join('')}
         <div style="margin-left:auto; font-size:12px; color:var(--muted);">
-          📍 ${totalEventsWithCoords}/${totalEvents} eventos con ubicación
+          📍 ${totalEventsWithCoords}/${totalEvents} eventos ubicados
         </div>
       </div>
     `;
