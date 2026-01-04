@@ -3264,6 +3264,16 @@
     // Day colors for routes
     const dayColors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
 
+    // Get hotel coordinates (geocoded or city center as fallback)
+    const hotelName = city.hotel || '';
+    const hotelCacheKey = getCacheKey(hotelName, cityName);
+    const hotelCoords = (hotelName && hotelCacheKey in geocodeCache && geocodeCache[hotelCacheKey])
+      ? geocodeCache[hotelCacheKey]
+      : cityCoords;
+
+    // Check if hotel needs geocoding
+    const hotelNeedsGeocode = hotelName && !(hotelCacheKey in geocodeCache);
+
     // Collect all events and check which have coordinates (explicit or cached)
     const allEvents = [];
     const eventsWithoutCoords = [];
@@ -3280,7 +3290,8 @@
 
     // Build day selector with geocode button
     mapDaySelector.style.display = 'block';
-    const needsGeocoding = eventsWithoutCoords.length > 0;
+    const needsGeocoding = eventsWithoutCoords.length > 0 || hotelNeedsGeocode;
+    const itemsToGeocode = eventsWithoutCoords.length + (hotelNeedsGeocode ? 1 : 0);
 
     mapDaySelector.innerHTML = `
       <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:${needsGeocoding ? '12px' : '0'};">
@@ -3308,7 +3319,7 @@
       </div>
       ${needsGeocoding ? `
         <div id="geocodePanel" style="padding:12px; background:var(--chip); border-radius:8px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <span style="font-size:13px;">📍 ${eventsWithoutCoords.length} lugares sin ubicación</span>
+          <span style="font-size:13px;">📍 ${itemsToGeocode} lugar${itemsToGeocode > 1 ? 'es' : ''} sin ubicación${hotelNeedsGeocode ? ' (incluye hotel)' : ''}</span>
           <button id="btnGeocode" class="primary" style="padding:6px 14px; font-size:13px;">
             🔍 Buscar ubicaciones automáticamente
           </button>
@@ -3353,8 +3364,19 @@
         btnGeocode.textContent = '⏳ Buscando...';
         const progressEl = document.getElementById('geocodeProgress');
 
+        // First geocode hotel if needed
+        if (hotelNeedsGeocode && hotelName) {
+          progressEl.textContent = 'Buscando hotel...';
+          await geocodePlace(hotelName, cityName);
+        }
+
+        // Then geocode events
+        const totalItems = eventsWithoutCoords.length + (hotelNeedsGeocode ? 1 : 0);
+        let processed = hotelNeedsGeocode ? 1 : 0;
+
         await geocodePlaces(eventsWithoutCoords, cityName, (done, total, success, fail) => {
-          progressEl.innerHTML = `${done}/${total} procesados <span style="color:var(--success);">✓${success}</span> <span style="color:var(--danger);">✗${fail}</span>`;
+          const totalDone = done + (hotelNeedsGeocode ? 1 : 0);
+          progressEl.innerHTML = `${totalDone}/${totalItems} procesados <span style="color:var(--success);">✓${success}</span> <span style="color:var(--danger);">✗${fail}</span>`;
         });
 
         // Re-render map with new coordinates
@@ -3364,6 +3386,9 @@
 
     const markers = [];
     const allPoints = [];
+
+    // Use hotel geocoded coordinates if available, otherwise city center
+    const baseCoords = hotelCoords.lat ? hotelCoords : cityCoords;
 
     // Add hotel marker (home base)
     const hotelIcon = L.divIcon({
@@ -3385,10 +3410,10 @@
       iconAnchor: [18, 18]
     });
 
-    const hotelMarker = L.marker([cityCoords.lat, cityCoords.lng], { icon: hotelIcon })
+    const hotelMarker = L.marker([baseCoords.lat, baseCoords.lng], { icon: hotelIcon })
       .bindPopup(`
         <div style="min-width:150px;">
-          <strong>🏨 Hotel Base</strong><br/>
+          <strong>🏨 Hotel</strong><br/>
           <span>${escapeHtml(city.hotel || 'Sin hotel definido')}</span><br/>
           <span style="color:#666;">${escapeHtml(city.name)}</span>
         </div>
@@ -3396,7 +3421,7 @@
       .addTo(leafletMap);
 
     markers.push(hotelMarker);
-    allPoints.push([cityCoords.lat, cityCoords.lng]);
+    allPoints.push([baseCoords.lat, baseCoords.lng]);
 
     // Add events for each day
     days.forEach((day, dayIndex) => {
@@ -3409,7 +3434,7 @@
         coords: getEventCoords(evt, cityName)
       })).filter(evt => evt.coords);
 
-      const routePoints = [[cityCoords.lat, cityCoords.lng]]; // Start from hotel
+      const routePoints = [[baseCoords.lat, baseCoords.lng]]; // Start from hotel
 
       dayEvents.forEach((evt, evtIndex) => {
         const { lat, lng } = evt.coords;
@@ -3451,7 +3476,7 @@
 
       // Add return to hotel
       if (routePoints.length > 1) {
-        routePoints.push([cityCoords.lat, cityCoords.lng]);
+        routePoints.push([baseCoords.lat, baseCoords.lng]);
 
         // Draw route for this day
         L.polyline(routePoints, {
@@ -3591,37 +3616,41 @@
       }
     }
 
-    // Initialize or update calendar
-    if (!fullCalendar) {
-      fullCalendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        initialDate: trip.startDate,
-        locale: 'es',
-        headerToolbar: {
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,listWeek'
-        },
-        buttonText: {
-          today: 'Hoy',
-          month: 'Mes',
-          week: 'Semana',
-          list: 'Lista'
-        },
-        events: events,
-        eventClick: function(info) {
-          const props = info.event.extendedProps;
-          alert(`${info.event.title}\n\n📍 ${props.cityName}\n📌 ${props.type || 'Evento'}${props.notes ? '\n\n📝 ' + props.notes : ''}`);
-        },
-        height: 'auto'
-      });
-      fullCalendar.render();
-    } else {
-      // Update events
-      fullCalendar.removeAllEvents();
-      fullCalendar.addEventSource(events);
-      fullCalendar.gotoDate(trip.startDate);
+    // Destroy existing calendar to ensure clean render
+    if (fullCalendar) {
+      fullCalendar.destroy();
+      fullCalendar = null;
     }
+
+    // Create fresh calendar
+    fullCalendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      initialDate: trip.startDate,
+      locale: 'es',
+      timeZone: 'local',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,listWeek'
+      },
+      buttonText: {
+        today: 'Hoy',
+        month: 'Mes',
+        week: 'Semana',
+        list: 'Lista'
+      },
+      events: events,
+      eventDidMount: function(info) {
+        // Add tooltip with city name
+        info.el.title = info.event.extendedProps.cityName;
+      },
+      eventClick: function(info) {
+        const props = info.event.extendedProps;
+        alert(`${info.event.title}\n\n📍 ${props.cityName}\n📌 ${props.type || 'Evento'}${props.notes ? '\n\n📝 ' + props.notes : ''}`);
+      },
+      height: 'auto'
+    });
+    fullCalendar.render();
   }
 
   // ---------- Render Today ----------
