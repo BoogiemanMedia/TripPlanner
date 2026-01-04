@@ -3182,6 +3182,8 @@
 
   // Load weather for each day in timeline
   async function loadTimelineWeather() {
+    console.log('=== loadTimelineWeather START ===');
+
     // Hide the header weather container (we show weather per day now)
     const weatherContainer = document.getElementById('timelineWeather');
     if (weatherContainer) weatherContainer.style.display = 'none';
@@ -3201,31 +3203,40 @@
     for (const [cityId, city] of uniqueCities) {
       try {
         // Try multiple APIs with fallback
+        console.log('Weather: fetching for', city.cleanName);
         const data = await fetchWeatherWithFallback(city.cleanName, city.coords);
+        console.log('Weather: got data', data ? Object.keys(data.daily || {}).length + ' days' : 'null');
 
-        if (!data) {
-          document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
-            span.style.display = 'none';
+        const spans = document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`);
+        console.log('Weather: found', spans.length, 'spans for', city.cleanName);
+
+        if (!data || !data.daily) {
+          spans.forEach(span => {
+            span.innerHTML = `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:11px; opacity:0.6;">--</span>`;
           });
           continue;
         }
 
         // Update all day-weather spans for this city
-        document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
+        spans.forEach(span => {
           const date = span.dataset.date;
           const weather = data.daily[date];
+          console.log('Weather: date', date, 'has data:', !!weather);
           if (weather) {
             span.innerHTML = `<span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; font-size:13px;">${weather.icon} ${weather.max}° / ${weather.min}°</span>`;
           } else {
-            span.style.display = 'none';
+            // No forecast for this date - show placeholder
+            span.innerHTML = `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:11px; opacity:0.6;">🌡️ --</span>`;
           }
         });
-      } catch {
+      } catch (err) {
+        console.log('Weather error:', err);
         document.querySelectorAll(`.day-weather[data-city-id="${cityId}"]`).forEach(span => {
-          span.style.display = 'none';
+          span.innerHTML = `<span style="background:rgba(255,0,0,0.2); padding:2px 6px; border-radius:4px; font-size:11px;">❌</span>`;
         });
       }
     }
+    console.log('=== loadTimelineWeather END ===');
   }
 
   // Try multiple weather APIs with fallback (7Timer first - most reliable)
