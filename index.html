@@ -1414,6 +1414,13 @@
   </div>
 </header>
 
+<!-- Debug/Sync Panel for mobile -->
+<div id="debugPanel" style="background:var(--warning); color:#000; padding:8px 16px; font-size:12px; display:none;">
+  <strong>📊 Estado datos:</strong> <span id="debugStats"></span>
+  <button onclick="document.getElementById('inpImport').click()" style="margin-left:10px; padding:4px 8px; font-size:11px;">📥 Importar JSON</button>
+  <button onclick="document.getElementById('debugPanel').style.display='none'" style="margin-left:5px; padding:4px 8px; font-size:11px;">✕</button>
+</div>
+
 <div class="wrap">
   <aside>
     <div class="card">
@@ -4255,6 +4262,40 @@
 
     // Restore UI state after rendering
     restoreUIState();
+
+    // Update debug panel
+    updateDebugPanel();
+  }
+
+  // Update debug panel with data stats
+  function updateDebugPanel() {
+    const debugPanel = document.getElementById('debugPanel');
+    const debugStats = document.getElementById('debugStats');
+    if (!debugPanel || !debugStats) return;
+
+    // Count stats
+    let totalEvents = 0;
+    let ticketsRequired = 0;
+    let ticketsBought = 0;
+    for (const city of trip.cities) {
+      for (const day of (city.days || [])) {
+        for (const event of (day.events || [])) {
+          totalEvents++;
+          if (event.ticketRequired) {
+            ticketsRequired++;
+            if (event.ticketBought) ticketsBought++;
+          }
+        }
+      }
+    }
+
+    debugStats.textContent = `${trip.cities.length} ciudades, ${totalEvents} eventos, ${ticketsBought}/${ticketsRequired} tickets comprados`;
+
+    // Show panel on mobile or if there's a data issue
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      debugPanel.style.display = 'block';
+    }
   }
 
   // ---------- Init ----------
