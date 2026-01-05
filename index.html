@@ -1426,9 +1426,7 @@
     <div class="card">
       <div style="font-weight:900;">Vista</div>
       <div class="tabs" style="margin-top:8px;">
-        <div class="tab active" data-tab="all">Todo</div>
-        <div class="tab" data-tab="city">Por ciudad</div>
-        <div class="tab" data-tab="timeline">Timeline</div>
+        <div class="tab active" data-tab="timeline">Timeline</div>
         <div class="tab" data-tab="calendar">📅 Calendario</div>
         <div class="tab" data-tab="map">🗺️ Mapa</div>
         <div class="tab" data-tab="today">⭐ Hoy</div>
@@ -1496,9 +1494,7 @@
   </aside>
 
   <main>
-    <div id="viewAll" class="view"></div>
-    <div id="viewCity" class="view" style="display:none;"></div>
-    <div id="viewTimeline" class="view" style="display:none;">
+    <div id="viewTimeline" class="view">
       <div class="card">
         <div id="timelineContent"></div>
       </div>
@@ -1863,8 +1859,6 @@
   // Track selected cities (array of city IDs)
   let selectedCityIds = [];
 
-  const viewAll = document.getElementById("viewAll");
-  const viewCity = document.getElementById("viewCity");
   const viewTimeline = document.getElementById("viewTimeline");
   const viewTickets = document.getElementById("viewTickets");
   const viewCalendar = document.getElementById("viewCalendar");
@@ -1885,8 +1879,6 @@
   });
 
   function showTab(tab) {
-    viewAll.style.display = tab === "all" ? "block" : "none";
-    viewCity.style.display = tab === "city" ? "block" : "none";
     viewTimeline.style.display = tab === "timeline" ? "block" : "none";
     viewTickets.style.display = tab === "tickets" ? "block" : "none";
     viewCalendar.style.display = tab === "calendar" ? "block" : "none";
@@ -1969,8 +1961,6 @@
   }
 
   function triggerFilterChange() {
-    renderAll();
-    renderCity();
     renderTickets();
     if (document.querySelector('.tab.active')?.dataset.tab === "timeline") renderTimeline();
   }
@@ -2109,28 +2099,131 @@
   });
 
   function editCity(cityId) {
-    const prev = JSON.parse(JSON.stringify(trip));
     const c = trip.cities.find(x => x.id === cityId);
     if (!c) return;
 
-    const name = prompt("Nombre ciudad:", c.name);
-    if (name === null) return;
-    c.name = name.trim() || c.name;
+    // Initialize coords if not present
+    if (!c.coords) c.coords = { lat: '', lng: '' };
 
-    const nightsStr = prompt("Noches:", String(c.nights));
-    if (nightsStr === null) return;
-    c.nights = Math.max(1, parseInt(nightsStr,10) || c.nights);
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'timeline-modal-overlay';
+    modal.innerHTML = `
+      <div class="timeline-modal">
+        <h3>✏️ Editar Ciudad</h3>
+        <div class="edit-grid">
+          <div class="edit-field full-width">
+            <label>Nombre</label>
+            <input type="text" id="cityModalName" value="${escapeHtml(c.name)}" placeholder="Nombre de la ciudad">
+          </div>
+          <div class="edit-field">
+            <label>Noches</label>
+            <input type="number" id="cityModalNights" value="${c.nights}" min="1" max="30">
+          </div>
+          <div class="edit-field">
+            <label>Color</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="color" id="cityModalColor" value="${c.color}" style="width:50px; height:36px; padding:2px; cursor:pointer;">
+              <input type="text" id="cityModalColorText" value="${c.color}" placeholder="#4f7cff" style="flex:1; font-family:monospace;">
+            </div>
+          </div>
+          <div class="edit-field full-width">
+            <label>Hotel</label>
+            <input type="text" id="cityModalHotel" value="${escapeHtml(c.hotel || '')}" placeholder="Nombre del hotel (opcional)">
+          </div>
+          <div class="edit-field full-width" style="margin-top:8px; padding-top:12px; border-top:1px solid var(--line);">
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              📍 Coordenadas <span style="font-size:11px; color:var(--muted);">(para clima y mapa)</span>
+            </label>
+            <div style="display:flex; gap:8px;">
+              <input type="number" step="any" id="cityModalLat" value="${c.coords.lat || ''}" placeholder="Latitud (ej: 40.4168)" style="flex:1;">
+              <input type="number" step="any" id="cityModalLng" value="${c.coords.lng || ''}" placeholder="Longitud (ej: -3.7038)" style="flex:1;">
+            </div>
+            <div class="small" style="margin-top:6px; color:var(--muted);">
+              💡 Tip: Buscá en Google Maps y copiá las coordenadas de la URL
+            </div>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="primary" id="cityModalSave">💾 Guardar</button>
+          <button id="cityModalCancel">Cancelar</button>
+        </div>
+      </div>
+    `;
 
-    const hotel = prompt("Hotel:", c.hotel || "");
-    if (hotel !== null) c.hotel = hotel;
+    document.body.appendChild(modal);
 
-    const color = prompt("Color (hex), ej #4f7cff:", c.color);
-    if (color !== null && /^#([0-9a-fA-F]{6})$/.test(color.trim())) c.color = color.trim();
+    // Focus name field
+    document.getElementById('cityModalName').focus();
 
-    regenerateDaysPreserve(trip, prev);
-    saveTrip(trip);
-    rebuildCityFilter();
-    renderEverything();
+    // Sync color picker with text input
+    const colorPicker = document.getElementById('cityModalColor');
+    const colorText = document.getElementById('cityModalColorText');
+
+    colorPicker.addEventListener('input', () => {
+      colorText.value = colorPicker.value;
+    });
+
+    colorText.addEventListener('input', () => {
+      if (/^#([0-9a-fA-F]{6})$/.test(colorText.value.trim())) {
+        colorPicker.value = colorText.value.trim();
+      }
+    });
+
+    // Cancel button
+    document.getElementById('cityModalCancel').addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    // Save button
+    document.getElementById('cityModalSave').addEventListener('click', () => {
+      const prev = JSON.parse(JSON.stringify(trip));
+
+      const name = document.getElementById('cityModalName').value.trim();
+      const nights = parseInt(document.getElementById('cityModalNights').value, 10);
+      const hotel = document.getElementById('cityModalHotel').value.trim();
+      const color = colorText.value.trim();
+      const lat = parseFloat(document.getElementById('cityModalLat').value);
+      const lng = parseFloat(document.getElementById('cityModalLng').value);
+
+      // Update city
+      c.name = name || c.name;
+      c.nights = Math.max(1, nights || c.nights);
+      c.hotel = hotel;
+
+      if (/^#([0-9a-fA-F]{6})$/.test(color)) {
+        c.color = color;
+      }
+
+      // Update coords if valid
+      if (!isNaN(lat) && !isNaN(lng)) {
+        c.coords = { lat, lng };
+      } else if (!lat && !lng) {
+        // Clear coords if both empty
+        c.coords = { lat: '', lng: '' };
+      }
+
+      modal.remove();
+
+      regenerateDaysPreserve(trip, prev);
+      saveTrip(trip);
+      rebuildCityFilter();
+      renderEverything();
+    });
+
+    // Enter key to save
+    modal.querySelectorAll('input[type="text"], input[type="number"]').forEach(inp => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('cityModalSave').click();
+        }
+      });
+    });
   }
 
   function deleteCity(cityId) {
@@ -2194,305 +2287,6 @@
         el.classList.add('editing');
       }
     });
-  }
-
-  // ---------- Views ----------
-  function dayDetails(city, day, openByDefault) {
-    const det = document.createElement("details");
-    det.dataset.dayId = day.id; // Track by day ID for state preservation
-    det.open = !!openByDefault; // para que veas eventos sin tener que abrir todo
-    det.innerHTML = `
-      <summary>
-        <span>${formatDateES(day.date)}</span>
-        <span class="small">${escapeHtml(city.name)}</span>
-      </summary>
-    `;
-
-    const box = document.createElement("div");
-    box.style.marginTop = "10px";
-
-    const btnRow = document.createElement("div");
-    btnRow.className = "row";
-    btnRow.innerHTML = `
-      <button class="primary">+ Evento</button>
-      <span class="small">Arrastrá para reordenar o mover entre días.</span>
-      <span class="pill small">${escapeHtml(city.hotel || "")}</span>
-    `;
-    btnRow.querySelector("button").addEventListener("click", () => {
-      day.events.push(ev("Nuevo evento", "paseo", "", "", "", false));
-      saveTrip(trip);
-      renderEverything();
-    });
-
-    const events = document.createElement("div");
-    events.className = "events";
-    events.dataset.cityId = city.id;
-    events.dataset.dayId = day.id;
-
-    for (const e of day.events) {
-      events.appendChild(eventCard(city, day, e));
-    }
-
-    box.appendChild(btnRow);
-    box.appendChild(events);
-    det.appendChild(box);
-
-    wireDnD(events);
-    return det;
-  }
-
-  // Lista de tipos de evento para el selector
-  const EVENT_TYPES = [
-    'paseo', 'museo', 'ticket', 'comida', 'arquitectura', 'barrio',
-    'cultura', 'arte', 'diseño', 'música', 'logística', 'hotel',
-    'transporte', 'compras', 'naturaleza', 'playa', 'nocturno',
-    'foto', 'mirador', 'religioso', 'mercado', 'café', 'bar', 'show', 'tour'
-  ];
-
-  function eventCard(city, day, e) {
-    const el = document.createElement("div");
-    el.className = "event";
-    el.dataset.eventId = e.id;
-    el.dataset.cityId = city.id;
-    el.dataset.dayId = day.id;
-
-    const icon = getEventIcon(e.type);
-    const timePart = e.startTime ? `${escapeHtml(e.startTime)}${e.endTime ? " – "+escapeHtml(e.endTime) : ""}` : "";
-    const linkPart = e.link ? `<a href="${escapeHtml(e.link)}" target="_blank" onclick="event.stopPropagation()">🔗</a>` : "";
-
-    // Generar opciones del select de tipos
-    const typeOptions = EVENT_TYPES.map(t =>
-      `<option value="${t}" ${e.type === t ? 'selected' : ''}>${t}</option>`
-    ).join('');
-
-    el.innerHTML = `
-      <div class="event-view">
-        <div class="left" style="display:flex; align-items:flex-start; gap:8px;">
-          <span class="event-handle" title="Arrastrar">☰</span>
-          <div>
-            <div class="title"><span class="icon">${icon}</span> ${escapeHtml(e.title)}</div>
-            ${e.notes ? `<div class="event-notes-inline">${escapeHtml(e.notes)}</div>` : ''}
-            <div class="meta">
-              <span class="type-badge">${escapeHtml(e.type || "evento")}</span>
-              ${timePart ? `<span class="time">🕐 ${timePart}</span>` : ""}
-              ${linkPart}
-            </div>
-          </div>
-        </div>
-        <div class="quick-actions">
-          ${e.ticketRequired ? `
-            <label class="ticket-checkbox ${e.ticketBought ? 'bought' : 'pending'}" title="Click para cambiar estado">
-              <input type="checkbox" data-act="ticket" ${e.ticketBought ? 'checked' : ''} />
-              <span>${e.ticketBought ? '✓ Comprado' : '⚠ Pendiente'}</span>
-            </label>
-          ` : ''}
-          <button class="btn-icon" data-act="edit" title="Editar">✏️</button>
-          <button class="btn-icon danger" data-act="del" title="Borrar">🗑️</button>
-        </div>
-      </div>
-
-      <div class="event-edit-form">
-        <div class="edit-grid">
-          <div class="edit-field full-width">
-            <label>Título</label>
-            <input type="text" data-field="title" value="${escapeHtml(e.title)}" />
-          </div>
-          <div class="edit-field">
-            <label>Tipo</label>
-            <select data-field="type">
-              <option value="">-- Seleccionar --</option>
-              ${typeOptions}
-            </select>
-          </div>
-          <div class="edit-field">
-            <label>Link</label>
-            <input type="url" data-field="link" value="${escapeHtml(e.link || '')}" placeholder="https://..." />
-          </div>
-          <div class="edit-field">
-            <label>Hora inicio</label>
-            <input type="text" data-field="startTime" value="${escapeHtml(e.startTime || '')}" placeholder="10:00 o 'tarde'" />
-          </div>
-          <div class="edit-field">
-            <label>Hora fin</label>
-            <input type="text" data-field="endTime" value="${escapeHtml(e.endTime || '')}" placeholder="14:00 (opcional)" />
-          </div>
-          <div class="edit-field full-width">
-            <label>Notas</label>
-            <textarea data-field="notes" rows="2" placeholder="Detalles adicionales...">${escapeHtml(e.notes || '')}</textarea>
-          </div>
-          <div class="edit-field">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" data-field="ticketRequired" ${e.ticketRequired ? 'checked' : ''} style="width:16px;height:16px;" />
-              Requiere ticket/entrada
-            </label>
-          </div>
-          <div class="edit-field">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" data-field="ticketBought" ${e.ticketBought ? 'checked' : ''} ${!e.ticketRequired ? 'disabled' : ''} style="width:16px;height:16px;" />
-              Ticket comprado
-            </label>
-          </div>
-        </div>
-        <div class="edit-actions">
-          <button class="primary" data-act="save">💾 Guardar</button>
-          <button data-act="cancel">Cancelar</button>
-        </div>
-      </div>
-    `;
-
-    // Event: Toggle ticket bought (quick action)
-    const ticketCheckbox = el.querySelector('[data-act="ticket"]');
-    if (ticketCheckbox) {
-      ticketCheckbox.addEventListener("change", (evt) => {
-        evt.stopPropagation();
-        e.ticketBought = evt.target.checked;
-        saveTrip(trip);
-        // Update label
-        const label = evt.target.closest('.ticket-checkbox');
-        label.className = `ticket-checkbox ${e.ticketBought ? 'bought' : 'pending'}`;
-        label.querySelector('span').textContent = e.ticketBought ? '✓ Comprado' : '⚠ Pendiente';
-      });
-    }
-
-    // Event: Edit button - toggle edit mode
-    el.querySelector('[data-act="edit"]').addEventListener("click", (evt) => {
-      evt.stopPropagation();
-      el.classList.toggle('editing');
-    });
-
-    // Event: Cancel editing
-    el.querySelector('[data-act="cancel"]').addEventListener("click", (evt) => {
-      evt.stopPropagation();
-      el.classList.remove('editing');
-      // Reset form values
-      el.querySelector('[data-field="title"]').value = e.title;
-      el.querySelector('[data-field="type"]').value = e.type || '';
-      el.querySelector('[data-field="link"]').value = e.link || '';
-      el.querySelector('[data-field="startTime"]').value = e.startTime || '';
-      el.querySelector('[data-field="endTime"]').value = e.endTime || '';
-      el.querySelector('[data-field="notes"]').value = e.notes || '';
-      el.querySelector('[data-field="ticketRequired"]').checked = e.ticketRequired;
-      el.querySelector('[data-field="ticketBought"]').checked = e.ticketBought;
-    });
-
-    // Event: Save changes
-    el.querySelector('[data-act="save"]').addEventListener("click", (evt) => {
-      evt.stopPropagation();
-
-      const newTitle = el.querySelector('[data-field="title"]').value.trim();
-      e.title = newTitle || e.title;
-      e.type = el.querySelector('[data-field="type"]').value;
-      e.link = el.querySelector('[data-field="link"]').value.trim();
-      e.startTime = el.querySelector('[data-field="startTime"]').value.trim();
-      e.endTime = el.querySelector('[data-field="endTime"]').value.trim();
-      e.notes = el.querySelector('[data-field="notes"]').value.trim();
-      e.ticketRequired = el.querySelector('[data-field="ticketRequired"]').checked;
-      e.ticketBought = el.querySelector('[data-field="ticketBought"]').checked;
-
-      if (!e.ticketRequired) e.ticketBought = false;
-
-      // Close the edit form
-      el.classList.remove('editing');
-
-      // Show save confirmation
-      el.classList.add('just-saved');
-      setTimeout(() => el.classList.remove('just-saved'), 1500);
-
-      saveTrip(trip);
-      renderEverything(false);
-    });
-
-    // Event: ticketRequired checkbox controls ticketBought
-    el.querySelector('[data-field="ticketRequired"]').addEventListener("change", (evt) => {
-      const ticketBoughtCheckbox = el.querySelector('[data-field="ticketBought"]');
-      ticketBoughtCheckbox.disabled = !evt.target.checked;
-      if (!evt.target.checked) ticketBoughtCheckbox.checked = false;
-    });
-
-    // Event: Delete
-    el.querySelector('[data-act="del"]').addEventListener("click", (evt) => {
-      evt.stopPropagation();
-      if (!confirm(`¿Borrar "${e.title}"?`)) return;
-      for (const c of trip.cities) {
-        for (const d of c.days) {
-          const idx = d.events.findIndex(x => x.id === e.id);
-          if (idx >= 0) {
-            d.events.splice(idx, 1);
-            saveTrip(trip);
-            renderEverything();
-            return;
-          }
-        }
-      }
-    });
-
-    return el;
-  }
-
-  function renderAll() {
-    viewAll.innerHTML = "";
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Todo el viaje</div>`;
-    viewAll.appendChild(card);
-
-    const daysWrap = document.createElement("div");
-    daysWrap.className = "days";
-    card.appendChild(daysWrap);
-
-    for (const c of trip.cities) {
-      if (!isCitySelected(c.id)) continue;
-
-      const head = document.createElement("div");
-      head.className = "city-pill";
-      head.innerHTML = `<span class="dot" style="background:${c.color}"></span>
-                        <div><b>${escapeHtml(c.name)}</b> <span class="small">· ${c.nights} noches · ${escapeHtml(c.hotel||"")}</span></div>`;
-      daysWrap.appendChild(head);
-
-      c.days.forEach((d, idx) => {
-        // Abrimos por default el primer día de cada ciudad para que veas eventos al toque
-        daysWrap.appendChild(dayDetails(c, d, idx === 0));
-      });
-    }
-  }
-
-  function renderCity() {
-    viewCity.innerHTML = "";
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `<div style="font-weight:900; margin-bottom:8px;">Vista por ciudad</div>`;
-    viewCity.appendChild(card);
-
-    const list = document.createElement("div");
-    list.className = "days";
-    card.appendChild(list);
-
-    for (const c of trip.cities) {
-      if (!isCitySelected(c.id)) continue;
-
-      const det = document.createElement("details");
-      det.dataset.cityId = c.id; // Track by city ID for state preservation
-      det.open = true;
-      det.innerHTML = `
-        <summary>
-          <span class="row" style="gap:10px;">
-            <span class="dot" style="background:${c.color}"></span>
-            <span>${escapeHtml(c.name)}</span>
-            <span class="small">${escapeHtml(c.hotel||"")} · ${c.nights} noches</span>
-          </span>
-          <span class="small">click para colapsar</span>
-        </summary>
-      `;
-      const inner = document.createElement("div");
-      inner.className = "days";
-      inner.style.marginTop = "10px";
-      det.appendChild(inner);
-
-      c.days.forEach((d, idx) => inner.appendChild(dayDetails(c, d, idx === 0)));
-      list.appendChild(det);
-    }
   }
 
   function renderTickets() {
@@ -4291,10 +4085,8 @@
     renderTripMeta();
     renderCities();
     rebuildCityFilter();
-    renderAll();
-    renderCity();
     renderTickets();
-    const active = document.querySelector(".tab.active")?.dataset.tab || "all";
+    const active = document.querySelector(".tab.active")?.dataset.tab || "timeline";
     if (active === "timeline" && renderCal) renderTimeline();
 
     // Restore UI state after rendering
