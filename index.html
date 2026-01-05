@@ -1581,6 +1581,40 @@
     }[m]));
   }
 
+  // Parse Google Maps URL to extract coordinates
+  function parseGoogleMapsUrl(url) {
+    if (!url) return null;
+
+    // Pattern 1: /@lat,lng,zoom or /place/.../@lat,lng
+    const atPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    let match = url.match(atPattern);
+    if (match) {
+      return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+    }
+
+    // Pattern 2: ?q=lat,lng or ?ll=lat,lng
+    const queryPattern = /[?&](?:q|ll)=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    match = url.match(queryPattern);
+    if (match) {
+      return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+    }
+
+    // Pattern 3: /dir/lat,lng or destination coordinates
+    const dirPattern = /\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    match = url.match(dirPattern);
+    if (match) {
+      return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+    }
+
+    return null;
+  }
+
+  // Build Google Maps URL from coordinates
+  function buildGoogleMapsUrl(lat, lng) {
+    if (!lat || !lng) return '';
+    return `https://www.google.com/maps/@${lat},${lng},15z`;
+  }
+
   // ---------- Event Icons ----------
   function getEventIcon(type) {
     const icons = {
@@ -2133,14 +2167,11 @@
           </div>
           <div class="edit-field full-width" style="margin-top:8px; padding-top:12px; border-top:1px solid var(--line);">
             <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              📍 Coordenadas <span style="font-size:11px; color:var(--muted);">(para clima y mapa)</span>
+              📍 Ubicación <span style="font-size:11px; color:var(--muted);">(para clima y mapa)</span>
             </label>
-            <div style="display:flex; gap:8px;">
-              <input type="number" step="any" id="cityModalLat" value="${c.coords.lat || ''}" placeholder="Latitud (ej: 40.4168)" style="flex:1;">
-              <input type="number" step="any" id="cityModalLng" value="${c.coords.lng || ''}" placeholder="Longitud (ej: -3.7038)" style="flex:1;">
-            </div>
-            <div class="small" style="margin-top:6px; color:var(--muted);">
-              💡 Tip: Buscá en Google Maps y copiá las coordenadas de la URL
+            <input type="url" id="cityModalMapsUrl" value="${buildGoogleMapsUrl(c.coords.lat, c.coords.lng)}" placeholder="Pegá un link de Google Maps...">
+            <div id="cityModalCoordsStatus" class="small" style="margin-top:6px; color:var(--muted);">
+              ${c.coords.lat && c.coords.lng ? `✅ Coordenadas: ${c.coords.lat}, ${c.coords.lng}` : '💡 Buscá la ciudad en Google Maps y pegá el link acá'}
             </div>
           </div>
         </div>
@@ -2180,6 +2211,24 @@
       if (e.target === modal) modal.remove();
     });
 
+    // Live preview of Google Maps URL
+    const mapsUrlInput = document.getElementById('cityModalMapsUrl');
+    const coordsStatus = document.getElementById('cityModalCoordsStatus');
+
+    mapsUrlInput.addEventListener('input', () => {
+      const coords = parseGoogleMapsUrl(mapsUrlInput.value);
+      if (coords) {
+        coordsStatus.innerHTML = `✅ Coordenadas: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+        coordsStatus.style.color = 'var(--success, #22c55e)';
+      } else if (mapsUrlInput.value.trim()) {
+        coordsStatus.innerHTML = '⚠️ No se detectaron coordenadas en el link';
+        coordsStatus.style.color = 'var(--warning, #f59e0b)';
+      } else {
+        coordsStatus.innerHTML = '💡 Buscá la ciudad en Google Maps y pegá el link acá';
+        coordsStatus.style.color = 'var(--muted)';
+      }
+    });
+
     // Save button
     document.getElementById('cityModalSave').addEventListener('click', () => {
       const prev = JSON.parse(JSON.stringify(trip));
@@ -2188,8 +2237,7 @@
       const nights = parseInt(document.getElementById('cityModalNights').value, 10);
       const hotel = document.getElementById('cityModalHotel').value.trim();
       const color = colorText.value.trim();
-      const lat = parseFloat(document.getElementById('cityModalLat').value);
-      const lng = parseFloat(document.getElementById('cityModalLng').value);
+      const coords = parseGoogleMapsUrl(mapsUrlInput.value);
 
       // Update city
       c.name = name || c.name;
@@ -2200,11 +2248,11 @@
         c.color = color;
       }
 
-      // Update coords if valid
-      if (!isNaN(lat) && !isNaN(lng)) {
-        c.coords = { lat, lng };
-      } else if (!lat && !lng) {
-        // Clear coords if both empty
+      // Update coords from Google Maps URL
+      if (coords) {
+        c.coords = coords;
+      } else if (!mapsUrlInput.value.trim()) {
+        // Clear coords if URL is empty
         c.coords = { lat: '', lng: '' };
       }
 
@@ -2740,9 +2788,9 @@
             <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               📍 Ubicación en mapa <span style="font-size:11px; color:var(--muted);">(opcional - para ver en mapa de ciudad)</span>
             </label>
-            <div style="display:flex; gap:8px;">
-              <input type="number" step="any" id="modalEventLat" value="${event?.lat || ''}" placeholder="Latitud (ej: 40.4168)" style="flex:1;">
-              <input type="number" step="any" id="modalEventLng" value="${event?.lng || ''}" placeholder="Longitud (ej: -3.7038)" style="flex:1;">
+            <input type="url" id="modalEventMapsUrl" value="${buildGoogleMapsUrl(event?.lat, event?.lng)}" placeholder="Pegá un link de Google Maps...">
+            <div id="modalEventCoordsStatus" class="small" style="margin-top:6px; color:var(--muted);">
+              ${event?.lat && event?.lng ? `✅ Coordenadas: ${event.lat}, ${event.lng}` : '💡 Pegá el link del lugar en Google Maps'}
             </div>
           </div>
         </div>
@@ -2767,6 +2815,24 @@
       if (e.target === modal) modal.remove();
     });
 
+    // Live preview of Google Maps URL
+    const eventMapsUrlInput = document.getElementById('modalEventMapsUrl');
+    const eventCoordsStatus = document.getElementById('modalEventCoordsStatus');
+
+    eventMapsUrlInput.addEventListener('input', () => {
+      const coords = parseGoogleMapsUrl(eventMapsUrlInput.value);
+      if (coords) {
+        eventCoordsStatus.innerHTML = `✅ Coordenadas: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+        eventCoordsStatus.style.color = 'var(--success, #22c55e)';
+      } else if (eventMapsUrlInput.value.trim()) {
+        eventCoordsStatus.innerHTML = '⚠️ No se detectaron coordenadas en el link';
+        eventCoordsStatus.style.color = 'var(--warning, #f59e0b)';
+      } else {
+        eventCoordsStatus.innerHTML = '💡 Pegá el link del lugar en Google Maps';
+        eventCoordsStatus.style.color = 'var(--muted)';
+      }
+    });
+
     document.getElementById('modalSaveBtn').addEventListener('click', () => {
       const title = document.getElementById('modalEventTitle').value.trim();
       if (!title) {
@@ -2774,8 +2840,7 @@
         return;
       }
 
-      const latVal = document.getElementById('modalEventLat').value;
-      const lngVal = document.getElementById('modalEventLng').value;
+      const coords = parseGoogleMapsUrl(eventMapsUrlInput.value);
 
       const eventData = {
         id: event?.id || uid(),
@@ -2787,8 +2852,8 @@
         notes: document.getElementById('modalEventNotes').value,
         ticketRequired: document.getElementById('modalEventTicket').checked,
         ticketBought: document.getElementById('modalEventBought').checked,
-        lat: latVal ? parseFloat(latVal) : null,
-        lng: lngVal ? parseFloat(lngVal) : null
+        lat: coords?.lat || null,
+        lng: coords?.lng || null
       };
 
       if (isNew) {
