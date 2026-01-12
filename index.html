@@ -1470,7 +1470,7 @@
 
       <div class="row" style="margin-top:8px;">
         <button class="primary" id="btnSaveTrip">Guardar</button>
-        <button id="btnSaveFile" title="Guardar archivo para subir al servidor">💾 Guardar Archivo</button>
+        <button id="btnSaveFile" title="Descargar backup del viaje">💾 Backup</button>
         <button id="btnExport">Export JSON</button>
         <button class="primary" id="btnExportPdf">Export PDF</button>
         <label for="inpImport" class="tab" style="cursor:pointer;">Import JSON</label>
@@ -1679,55 +1679,87 @@
     return trip;
   }
 
-  function loadTrip() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    try {
-      const trip = JSON.parse(raw);
-      // Migrar datos viejos: regenerar días con la nueva lógica de noches+1
-      if (trip && trip.cities && trip.startDate) {
-        const prevTrip = JSON.parse(JSON.stringify(trip)); // copia para preservar eventos
-        regenerateDaysPreserve(trip, prevTrip);
-        saveTrip(trip); // guardar versión migrada
-      }
-      return trip;
-    } catch { return null; }
-  }
+  // API endpoint for server storage
+  const API_URL = 'api.php';
 
-  function saveTrip(trip) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
-  }
-
-  // Try to load from trip-data.json file (for server deployment)
-  async function loadTripFromFile() {
+  // Load trip from server
+  async function loadTripFromServer() {
     try {
-      const response = await fetch('trip-data.json?t=' + Date.now()); // cache bust
+      const response = await fetch(API_URL + '?t=' + Date.now()); // cache bust
       if (!response.ok) return null;
       const data = await response.json();
-      return data;
-    } catch {
+      if (data && data.cities && data.startDate) {
+        return data;
+      }
+      return null;
+    } catch (err) {
+      console.log('Server load failed:', err.message);
       return null;
     }
   }
 
-  // Save trip data to downloadable file
+  // Save trip to server
+  async function saveTripToServer(trip) {
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trip)
+      });
+      if (!response.ok) {
+        console.warn('Server save failed:', response.status);
+        return false;
+      }
+      const result = await response.json();
+      console.log('Saved to server:', result.bytes, 'bytes');
+      return true;
+    } catch (err) {
+      console.warn('Server save error:', err.message);
+      return false;
+    }
+  }
+
+  function loadTripFromLocalStorage() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    try {
+      const trip = JSON.parse(raw);
+      if (trip && trip.cities && trip.startDate) {
+        return trip;
+      }
+      return null;
+    } catch { return null; }
+  }
+
+  function saveTrip(trip) {
+    // Always save to localStorage as cache
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
+    // Save to server (async, don't block)
+    saveTripToServer(trip);
+  }
+
+  // Legacy function kept for compatibility
+  function loadTrip() {
+    return loadTripFromLocalStorage();
+  }
+
+  // Download trip data as JSON file (backup)
   function saveTripToFile() {
     const dataStr = JSON.stringify(trip, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'trip-data.json';
+    a.download = 'trip-backup.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    // Show confirmation
     const status = document.getElementById('dataFileStatus');
-    status.innerHTML = '✅ Archivo descargado! Subilo al servidor junto con index.html';
+    status.innerHTML = '✅ Backup descargado';
     status.style.color = 'var(--success)';
-    setTimeout(() => { status.innerHTML = ''; }, 5000);
+    setTimeout(() => { status.innerHTML = ''; }, 3000);
   }
 
   // Preservar eventos al cambiar startDate / nights / orden ciudades
@@ -1848,28 +1880,44 @@
   seedBasePlan(trip);
   saveTrip(trip);
 
-  // Try to load from trip-data.json if localStorage was empty (for server deployment)
-  async function tryLoadFromFile() {
-    const localData = localStorage.getItem(STORAGE_KEY);
-    // Only try to load from file if localStorage is empty or very basic
-    if (!localData || localData.length < 100) {
-      const fileTrip = await loadTripFromFile();
-      if (fileTrip && fileTrip.cities && fileTrip.cities.length > 0) {
-        trip = fileTrip;
-        saveTrip(trip);
-        rebuildCityFilter();
-        renderEverything();
-        const status = document.getElementById('dataFileStatus');
-        if (status) {
-          status.innerHTML = '📂 Datos cargados desde trip-data.json';
-          status.style.color = 'var(--accent)';
-        }
+  // Load from server on startup - this is the primary data source
+  async function loadFromServer() {
+    const serverTrip = await loadTripFromServer();
+    if (serverTrip && serverTrip.cities && serverTrip.cities.length > 0) {
+      trip = serverTrip;
+      // Migrate if needed
+      const prevTrip = JSON.parse(JSON.stringify(trip));
+      regenerateDaysPreserve(trip, prevTrip);
+      // Update localStorage cache
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
+      rebuildCityFilter();
+      renderEverything();
+      console.log('✅ Datos cargados desde servidor');
+      const status = document.getElementById('dataFileStatus');
+      if (status) {
+        status.innerHTML = '✅ Sincronizado con servidor';
+        status.style.color = 'var(--success, #22c55e)';
+        setTimeout(() => { status.innerHTML = ''; }, 3000);
       }
+      return true;
     }
+    return false;
   }
 
-  // Try loading from file after initial render
-  tryLoadFromFile();
+  // Try loading from server after initial render
+  loadFromServer().then(success => {
+    if (!success) {
+      console.log('ℹ️ Usando datos locales (servidor no disponible)');
+      // If we have local data, save it to server for first sync
+      if (trip && trip.cities && trip.cities.length > 0) {
+        saveTripToServer(trip).then(saved => {
+          if (saved) {
+            console.log('📤 Datos locales subidos al servidor');
+          }
+        });
+      }
+    }
+  });
 
   // ---------- UI refs ----------
   const tripTitle = document.getElementById("tripTitle");
