@@ -1476,9 +1476,10 @@
         <label for="inpImport" class="tab" style="cursor:pointer;">Import JSON</label>
         <input id="inpImport" type="file" accept="application/json" style="display:none;" />
       </div>
+      <div id="syncStatus" style="margin-top:6px; padding:6px 10px; border-radius:6px; font-size:12px; display:none;"></div>
       <div class="small" id="dataFileStatus" style="margin-top:6px;"></div>
       <div class="small">
-        💡 Usá "Guardar Archivo" para descargar <strong>trip-data.json</strong> y subirlo junto con index.html al servidor.
+        💡 Los cambios se sincronizan automáticamente con el servidor. "Backup" descarga una copia de seguridad.
       </div>
     </div>
 
@@ -1681,40 +1682,94 @@
 
   // API endpoint for server storage
   const API_URL = 'api.php';
+  let serverAvailable = false;
+  let isSaving = false;
+
+  // Show sync status
+  function showSyncStatus(message, type = 'info') {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+
+    el.style.display = 'block';
+    el.textContent = message;
+
+    if (type === 'success') {
+      el.style.background = 'rgba(34, 197, 94, 0.2)';
+      el.style.color = '#22c55e';
+    } else if (type === 'error') {
+      el.style.background = 'rgba(239, 68, 68, 0.2)';
+      el.style.color = '#ef4444';
+    } else if (type === 'saving') {
+      el.style.background = 'rgba(59, 130, 246, 0.2)';
+      el.style.color = '#3b82f6';
+    } else {
+      el.style.background = 'rgba(156, 163, 175, 0.2)';
+      el.style.color = '#9ca3af';
+    }
+
+    // Auto-hide success messages
+    if (type === 'success') {
+      setTimeout(() => { el.style.display = 'none'; }, 2000);
+    }
+  }
 
   // Load trip from server
   async function loadTripFromServer() {
     try {
-      const response = await fetch(API_URL + '?t=' + Date.now()); // cache bust
-      if (!response.ok) return null;
+      const response = await fetch(API_URL + '?t=' + Date.now(), {
+        cache: 'no-store'
+      });
+      if (!response.ok) {
+        serverAvailable = false;
+        return null;
+      }
       const data = await response.json();
       if (data && data.cities && data.startDate) {
+        serverAvailable = true;
         return data;
       }
+      serverAvailable = true; // Server works but no data yet
       return null;
     } catch (err) {
       console.log('Server load failed:', err.message);
+      serverAvailable = false;
       return null;
     }
   }
 
-  // Save trip to server
-  async function saveTripToServer(trip) {
+  // Save trip to server - returns promise
+  async function saveTripToServer(tripData) {
+    if (isSaving) return false; // Prevent double saves
+    isSaving = true;
+    showSyncStatus('⏳ Guardando...', 'saving');
+
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(trip)
+        body: JSON.stringify(tripData),
+        cache: 'no-store'
       });
+
+      isSaving = false;
+
       if (!response.ok) {
         console.warn('Server save failed:', response.status);
+        showSyncStatus('❌ Error al guardar en servidor', 'error');
+        serverAvailable = false;
         return false;
       }
+
       const result = await response.json();
+      serverAvailable = true;
+      showSyncStatus('✅ Guardado', 'success');
       console.log('Saved to server:', result.bytes, 'bytes');
       return true;
     } catch (err) {
+      isSaving = false;
       console.warn('Server save error:', err.message);
+      showSyncStatus('❌ Sin conexión al servidor', 'error');
+      serverAvailable = false;
       return false;
     }
   }
@@ -1723,19 +1778,20 @@
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     try {
-      const trip = JSON.parse(raw);
-      if (trip && trip.cities && trip.startDate) {
-        return trip;
+      const data = JSON.parse(raw);
+      if (data && data.cities && data.startDate) {
+        return data;
       }
       return null;
     } catch { return null; }
   }
 
-  function saveTrip(trip) {
-    // Always save to localStorage as cache
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
-    // Save to server (async, don't block)
-    saveTripToServer(trip);
+  // Main save function - saves to localStorage immediately, then to server
+  function saveTrip(tripData) {
+    // Always save to localStorage first (instant)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tripData));
+    // Then save to server
+    saveTripToServer(tripData);
   }
 
   // Legacy function kept for compatibility
@@ -1875,49 +1931,42 @@
   }
 
   // ---------- State ----------
-  let trip = loadTrip() || defaultTrip();
-  // Si el usuario ya guardó una versión sin eventos por algún bug previo, re-seed:
+  // Start with local data while we fetch from server
+  let trip = loadTripFromLocalStorage() || defaultTrip();
   seedBasePlan(trip);
-  saveTrip(trip);
+  // DON'T save here - wait for server sync first
 
-  // Load from server on startup - this is the primary data source
-  async function loadFromServer() {
+  // Load from server on startup - SERVER IS THE SOURCE OF TRUTH
+  async function initializeFromServer() {
+    showSyncStatus('🔄 Cargando datos...', 'saving');
+
     const serverTrip = await loadTripFromServer();
+
     if (serverTrip && serverTrip.cities && serverTrip.cities.length > 0) {
+      // Server has data - use it
       trip = serverTrip;
-      // Migrate if needed
       const prevTrip = JSON.parse(JSON.stringify(trip));
       regenerateDaysPreserve(trip, prevTrip);
-      // Update localStorage cache
       localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
       rebuildCityFilter();
       renderEverything();
+      showSyncStatus('✅ Sincronizado', 'success');
       console.log('✅ Datos cargados desde servidor');
-      const status = document.getElementById('dataFileStatus');
-      if (status) {
-        status.innerHTML = '✅ Sincronizado con servidor';
-        status.style.color = 'var(--success, #22c55e)';
-        setTimeout(() => { status.innerHTML = ''; }, 3000);
-      }
-      return true;
+    } else if (serverAvailable) {
+      // Server available but empty - upload local data
+      console.log('📤 Servidor vacío, subiendo datos locales...');
+      await saveTripToServer(trip);
+      rebuildCityFilter();
+      renderEverything();
+    } else {
+      // Server not available - show warning
+      showSyncStatus('⚠️ Servidor no disponible - usando datos locales', 'error');
+      console.log('⚠️ Servidor no disponible');
     }
-    return false;
   }
 
-  // Try loading from server after initial render
-  loadFromServer().then(success => {
-    if (!success) {
-      console.log('ℹ️ Usando datos locales (servidor no disponible)');
-      // If we have local data, save it to server for first sync
-      if (trip && trip.cities && trip.cities.length > 0) {
-        saveTripToServer(trip).then(saved => {
-          if (saved) {
-            console.log('📤 Datos locales subidos al servidor');
-          }
-        });
-      }
-    }
-  });
+  // Initialize from server after DOM is ready
+  initializeFromServer();
 
   // ---------- UI refs ----------
   const tripTitle = document.getElementById("tripTitle");
